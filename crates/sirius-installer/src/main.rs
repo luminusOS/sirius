@@ -5,6 +5,7 @@ mod app;
 mod config_model;
 mod gui;
 mod navigator;
+mod pages;
 
 use clap::{Parser, Subcommand};
 use sirius_diag::config::CONFIG_PATH;
