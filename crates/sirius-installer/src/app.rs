@@ -76,44 +76,32 @@ impl SimpleComponent for AppModel {
 
             #[wrap(Some)]
             set_content = &adw::ToolbarView {
-                add_top_bar = &adw::HeaderBar {},
+                add_top_bar = &adw::HeaderBar {
+                    pack_start = &gtk::Button {
+                        set_label: "Back",
+                        #[watch]
+                        set_sensitive: !model.nav.is_first(),
+                        connect_clicked => AppMsg::Back,
+                    },
 
+                    pack_end = &gtk::Button {
+                        set_label: "Next",
+                        add_css_class: "suggested-action",
+                        #[watch]
+                        set_sensitive: model.can_proceed,
+                        connect_clicked => AppMsg::Next,
+                    },
+                },
+
+                #[name = "stack"]
                 #[wrap(Some)]
-                set_content = &gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
-
-                    #[name = "stack"]
-                    gtk::Stack {
-                        set_vexpand: true,
-                        // skip_init: children are added imperatively *after*
-                        // view_output!(); the explicit set below picks the
-                        // first page. The watch still drives later navigation.
-                        #[watch(skip_init)]
-                        set_visible_child_name: model.nav.current(),
-                    },
-
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Horizontal,
-                        set_spacing: 6,
-                        set_margin_all: 12,
-
-                        gtk::Button {
-                            set_label: "Back",
-                            #[watch]
-                            set_sensitive: !model.nav.is_first(),
-                            connect_clicked => AppMsg::Back,
-                        },
-
-                        gtk::Box { set_hexpand: true },
-
-                        gtk::Button {
-                            set_label: "Next",
-                            add_css_class: "suggested-action",
-                            #[watch]
-                            set_sensitive: model.can_proceed,
-                            connect_clicked => AppMsg::Next,
-                        },
-                    },
+                set_content = &gtk::Stack {
+                    set_vexpand: true,
+                    // skip_init: children are added imperatively *after*
+                    // view_output!(); the explicit set below picks the
+                    // first page. The watch still drives later navigation.
+                    #[watch(skip_init)]
+                    set_visible_child_name: model.nav.current(),
                 },
             },
         }
