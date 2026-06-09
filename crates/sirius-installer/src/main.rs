@@ -1,6 +1,9 @@
 //! Sirius installer entry point. This plan implements only the `diag` subcommand;
 //! Plan 2 adds the GTK wizard (default, no subcommand) and Plan 3 adds `--run-playbook`.
 
+mod app;
+mod gui;
+
 use clap::{Parser, Subcommand};
 use sirius_diag::config::CONFIG_PATH;
 use sirius_diag::{is_blocked, run_all_checks, SiriusConfig, SystemFacts};
@@ -29,7 +32,7 @@ fn main() -> ExitCode {
     match cli.command {
         Some(Command::Diag { json }) => run_diag(json),
         None => {
-            eprintln!("the GTK wizard is not implemented yet (Plan 2). Try `sirius diag`.");
+            gui::run();
             ExitCode::SUCCESS
         }
     }
