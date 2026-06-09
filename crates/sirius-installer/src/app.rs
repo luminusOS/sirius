@@ -2,6 +2,7 @@
 
 use crate::config_model::InstallConfig;
 use crate::navigator::Navigator;
+use crate::pages::diagnostics::{DiagnosticsInit, DiagnosticsPage};
 use crate::pages::welcome::WelcomePage;
 use crate::pages::PageOutput;
 use relm4::adw::prelude::*;
@@ -16,6 +17,7 @@ pub struct AppModel {
     nav: Navigator,
     can_proceed: bool,
     _welcome: Controller<WelcomePage>,
+    _diagnostics: Controller<DiagnosticsPage>,
 }
 
 #[derive(Debug)]
@@ -89,9 +91,14 @@ impl SimpleComponent for AppModel {
             tracing::warn!("{w}");
         }
         let nav = Navigator::new(cfg.pages.resolve());
+        let diag_require = cfg.diagnostics.require.clone();
 
         let welcome = WelcomePage::builder()
             .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
+        let diagnostics = DiagnosticsPage::builder()
+            .launch(DiagnosticsInit { require: diag_require })
             .forward(sender.input_sender(), AppMsg::Page);
 
         let model = AppModel {
@@ -99,12 +106,16 @@ impl SimpleComponent for AppModel {
             nav,
             can_proceed: true,
             _welcome: welcome,
+            _diagnostics: diagnostics,
         };
 
         let widgets = view_output!();
         widgets
             .stack
             .add_named(model._welcome.widget(), Some("welcome"));
+        widgets
+            .stack
+            .add_named(model._diagnostics.widget(), Some("diagnostics"));
 
         ComponentParts { model, widgets }
     }

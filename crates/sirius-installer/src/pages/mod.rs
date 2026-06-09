@@ -1,6 +1,7 @@
 //! Wizard pages. Each page is a Relm4 SimpleComponent that emits `PageOutput`
 //! up to AppModel, which folds the change into InstallConfig.
 
+pub mod diagnostics;
 pub mod welcome;
 
 use crate::config_model::{InstallType, UserAccount};
