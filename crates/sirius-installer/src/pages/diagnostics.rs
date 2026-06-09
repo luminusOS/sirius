@@ -39,7 +39,7 @@ impl SimpleComponent for DiagnosticsPage {
     fn init(
         init: Self::Init,
         root: Self::Root,
-        sender: ComponentSender<Self>,
+        _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         root.set_title("System compatibility");
         root.set_description(Some("Sirius checked your hardware before installing."));
@@ -69,7 +69,6 @@ impl SimpleComponent for DiagnosticsPage {
         let model = DiagnosticsPage { checks, blocked };
         let widgets = DiagnosticsPageWidgets { root };
 
-        sender.output(PageOutput::CanProceed(!model.blocked)).ok();
         ComponentParts { model, widgets }
     }
 

@@ -35,7 +35,6 @@ impl SimpleComponent for FinishedPage {
     }
 
     fn init(_i: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
-        sender.output(PageOutput::CanProceed(false)).ok();
         let model = FinishedPage;
         let widgets = view_output!();
         ComponentParts { model, widgets }

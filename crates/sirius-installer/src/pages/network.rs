@@ -29,9 +29,8 @@ impl SimpleComponent for NetworkPage {
     fn init(
         _i: Self::Init,
         root: Self::Root,
-        sender: ComponentSender<Self>,
+        _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        sender.output(PageOutput::CanProceed(true)).ok();
         let model = NetworkPage;
         let widgets = view_output!();
         ComponentParts { model, widgets }

@@ -49,10 +49,9 @@ impl SimpleComponent for SummaryPage {
         }
     }
 
-    fn init(_i: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
+    fn init(_i: Self::Init, root: Self::Root, _sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let model = SummaryPage::default();
         let widgets = view_output!();
-        sender.output(PageOutput::CanProceed(true)).ok();
         ComponentParts { model, widgets }
     }
 

@@ -87,7 +87,6 @@ impl SimpleComponent for UserPage {
     ) -> ComponentParts<Self> {
         let model = UserPage::default();
         let widgets = view_output!();
-        sender.output(PageOutput::CanProceed(false)).ok();
         ComponentParts { model, widgets }
     }
 

@@ -50,9 +50,7 @@ impl SimpleComponent for DiskPage {
             let row = adw::ActionRow::new();
             row.set_title("No disks found");
             group.add(&row);
-            sender.output(PageOutput::CanProceed(false)).ok();
         } else {
-            sender.output(PageOutput::CanProceed(false)).ok();
             for (i, d) in disks.iter().enumerate() {
                 let row = adw::ActionRow::new();
                 row.set_title(&d.path);

@@ -18,13 +18,30 @@ use relm4::adw::prelude::*;
 use relm4::prelude::*;
 use relm4::{adw, gtk, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent};
 use sirius_diag::config::CONFIG_PATH;
-use sirius_diag::SiriusConfig;
+use sirius_diag::{is_blocked, run_all_checks, SiriusConfig, SystemFacts};
 use std::path::Path;
+
+/// Page ids that actually have mounted widgets in the Stack.
+/// Note: NO `manual_partition` — it has no widget and would render blank.
+const IMPLEMENTED_PAGES: &[&str] = &[
+    "welcome",
+    "diagnostics",
+    "network",
+    "keyboard",
+    "timezone",
+    "disk",
+    "partition",
+    "user",
+    "summary",
+    "progress",
+    "finished",
+];
 
 pub struct AppModel {
     config: InstallConfig,
     nav: Navigator,
     can_proceed: bool,
+    diagnostics_blocked: bool,
     _welcome: Controller<WelcomePage>,
     _diagnostics: Controller<DiagnosticsPage>,
     _network: Controller<NetworkPage>,
@@ -68,7 +85,10 @@ impl SimpleComponent for AppModel {
                     #[name = "stack"]
                     gtk::Stack {
                         set_vexpand: true,
-                        #[watch]
+                        // skip_init: children are added imperatively *after*
+                        // view_output!(); the explicit set below picks the
+                        // first page. The watch still drives later navigation.
+                        #[watch(skip_init)]
                         set_visible_child_name: model.nav.current(),
                     },
 
@@ -108,8 +128,20 @@ impl SimpleComponent for AppModel {
         if let Some(w) = warning {
             tracing::warn!("{w}");
         }
-        let nav = Navigator::new(cfg.pages.resolve());
+        let pages: Vec<String> = cfg
+            .pages
+            .resolve()
+            .into_iter()
+            .filter(|p| IMPLEMENTED_PAGES.contains(&p.as_str()))
+            .collect();
+        let nav = Navigator::new(pages);
         let diag_require = cfg.diagnostics.require.clone();
+
+        let diagnostics_blocked = {
+            let facts = SystemFacts::gather();
+            let checks = run_all_checks(&facts);
+            is_blocked(&checks, &cfg.diagnostics.require)
+        };
 
         let welcome = WelcomePage::builder()
             .launch(())
@@ -155,10 +187,11 @@ impl SimpleComponent for AppModel {
             .launch(())
             .forward(sender.input_sender(), AppMsg::Page);
 
-        let model = AppModel {
+        let mut model = AppModel {
             config: InstallConfig::default(),
             nav,
             can_proceed: true,
+            diagnostics_blocked,
             _welcome: welcome,
             _diagnostics: diagnostics,
             _network: network,
@@ -171,6 +204,8 @@ impl SimpleComponent for AppModel {
             progress,
             finished,
         };
+
+        model.can_proceed = model.gate_for();
 
         let widgets = view_output!();
         widgets
@@ -207,6 +242,8 @@ impl SimpleComponent for AppModel {
             .stack
             .add_named(model.finished.widget(), Some("finished"));
 
+        widgets.stack.set_visible_child_name(model.nav.current());
+
         ComponentParts { model, widgets }
     }
 
@@ -215,14 +252,14 @@ impl SimpleComponent for AppModel {
             AppMsg::Page(out) => self.apply_page_output(out),
             AppMsg::Next => {
                 self.nav.next();
-                self.can_proceed = true;
+                self.can_proceed = self.gate_for();
                 if self.nav.current() == "summary" {
                     self.summary.sender().send(SummaryMsg::Show(self.config.clone())).ok();
                 }
             }
             AppMsg::Back => {
                 self.nav.prev();
-                self.can_proceed = true;
+                self.can_proceed = self.gate_for();
             }
         }
     }
@@ -248,8 +285,23 @@ impl AppModel {
             PageOutput::CanProceed(ok) => self.can_proceed = ok,
             PageOutput::RequestNext => {
                 self.nav.next();
-                self.can_proceed = true;
+                self.can_proceed = self.gate_for();
+                if self.nav.current() == "summary" {
+                    self.summary.sender().send(SummaryMsg::Show(self.config.clone())).ok();
+                }
             }
+        }
+    }
+
+    /// Decide whether Next is allowed for the CURRENT page, based purely on
+    /// AppModel state. This is the authoritative arrival-gate.
+    fn gate_for(&self) -> bool {
+        match self.nav.current() {
+            "diagnostics" => !self.diagnostics_blocked,
+            "disk" => self.config.destination_disk.is_some(),
+            "user" => self.config.user.validate().is_ok(),
+            "progress" | "finished" => false,
+            _ => true,
         }
     }
 }

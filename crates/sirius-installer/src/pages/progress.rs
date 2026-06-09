@@ -42,8 +42,7 @@ impl SimpleComponent for ProgressPage {
         }
     }
 
-    fn init(_i: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
-        sender.output(PageOutput::CanProceed(false)).ok();
+    fn init(_i: Self::Init, root: Self::Root, _sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let model = ProgressPage { fraction: 0.0 };
         let widgets = view_output!();
         ComponentParts { model, widgets }
