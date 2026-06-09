@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Install LuminusOS
+Comment=Diagnostic installer for LuminusOS
+Exec=/usr/bin/sirius
+Icon=dev.luminusos.Sirius
+Terminal=false
+Type=Application
+Categories=System;
