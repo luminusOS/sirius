@@ -4,6 +4,7 @@
 mod app;
 mod config_model;
 mod gui;
+mod logging;
 mod navigator;
 mod pages;
 
@@ -16,6 +17,9 @@ use std::process::ExitCode;
 #[derive(Parser)]
 #[command(name = "sirius", about = "LuminusOS diagnostic installer")]
 struct Cli {
+    /// Build and print the install config from defaults, then exit without installing.
+    #[arg(long)]
+    dry_run: bool,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -32,6 +36,12 @@ enum Command {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    let _log = logging::init();
+    if cli.dry_run {
+        let cfg = sirius_installer_dry_run();
+        println!("{}", serde_json::to_string_pretty(&cfg).unwrap());
+        return ExitCode::SUCCESS;
+    }
     match cli.command {
         Some(Command::Diag { json }) => run_diag(json),
         None => {
@@ -39,6 +49,14 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
     }
+}
+
+fn sirius_installer_dry_run() -> config_model::InstallConfig {
+    use config_model::{InstallConfig, InstallType};
+    let mut cfg = InstallConfig::default();
+    cfg.locale = Some("en_US".into());
+    cfg.install_type = Some(InstallType::WholeDisk);
+    cfg
 }
 
 fn run_diag(json: bool) -> ExitCode {
