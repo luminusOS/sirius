@@ -43,6 +43,29 @@ pub fn probe_ram(meminfo: &str, min_gib: u64) -> Check {
     }
 }
 
+/// Pure disk-space check: the largest available disk must hold the install image.
+pub fn probe_disk_space(largest_disk_bytes: u64, required_bytes: u64) -> Check {
+    if largest_disk_bytes >= required_bytes {
+        Check::new(
+            "disk_space",
+            "Disk space",
+            Status::Pass,
+            format!(
+                "{} GiB disk available (need {} GiB)",
+                largest_disk_bytes / (1024 * 1024 * 1024),
+                required_bytes / (1024 * 1024 * 1024)
+            ),
+        )
+    } else {
+        Check::new(
+            "disk_space",
+            "Disk space",
+            Status::Fail,
+            "No disk large enough for the install image",
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,5 +99,17 @@ mod tests {
     #[test]
     fn ram_fail_when_unparseable() {
         assert_eq!(probe_ram("garbage", 4).status, Status::Fail);
+    }
+
+    #[test]
+    fn disk_pass_when_big_enough() {
+        let gib = 1024 * 1024 * 1024;
+        assert_eq!(probe_disk_space(40 * gib, 20 * gib).status, Status::Pass);
+    }
+
+    #[test]
+    fn disk_fail_when_too_small() {
+        let gib = 1024 * 1024 * 1024;
+        assert_eq!(probe_disk_space(8 * gib, 20 * gib).status, Status::Fail);
     }
 }
