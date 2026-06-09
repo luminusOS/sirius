@@ -5,6 +5,7 @@ pub mod diagnostics;
 pub mod disk;
 pub mod keyboard;
 pub mod network;
+pub mod partition;
 pub mod timezone;
 pub mod welcome;
 
