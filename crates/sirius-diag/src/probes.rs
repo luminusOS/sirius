@@ -66,6 +66,54 @@ pub fn probe_disk_space(largest_disk_bytes: u64, required_bytes: u64) -> Check {
     }
 }
 
+/// Pure Secure Boot check. `enabled` is the parsed efivar state, or `None` if unknown.
+/// Informational: warns rather than fails so installs still proceed.
+pub fn probe_secure_boot(enabled: Option<bool>) -> Check {
+    match enabled {
+        Some(true) => Check::new("secure_boot", "Secure Boot", Status::Pass, "enabled"),
+        Some(false) => Check::new(
+            "secure_boot",
+            "Secure Boot",
+            Status::Warn,
+            "disabled; recommended for a secure system",
+        ),
+        None => Check::new(
+            "secure_boot",
+            "Secure Boot",
+            Status::Warn,
+            "state could not be determined",
+        ),
+    }
+}
+
+/// Pure virtualization check. `detected` is the `systemd-detect-virt` value,
+/// or `None` when running on bare metal.
+pub fn probe_virt(detected: Option<&str>) -> Check {
+    match detected {
+        None => Check::new("virt", "Virtualization", Status::Pass, "running on bare metal"),
+        Some(kind) => Check::new(
+            "virt",
+            "Virtualization",
+            Status::Warn,
+            format!("running inside a virtual machine ({kind})"),
+        ),
+    }
+}
+
+/// Pure network check.
+pub fn probe_network(online: bool) -> Check {
+    if online {
+        Check::new("network", "Network", Status::Pass, "connected")
+    } else {
+        Check::new(
+            "network",
+            "Network",
+            Status::Warn,
+            "no connection; some post-install steps may be skipped",
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +159,24 @@ mod tests {
     fn disk_fail_when_too_small() {
         let gib = 1024 * 1024 * 1024;
         assert_eq!(probe_disk_space(8 * gib, 20 * gib).status, Status::Fail);
+    }
+
+    #[test]
+    fn secure_boot_states() {
+        assert_eq!(probe_secure_boot(Some(true)).status, Status::Pass);
+        assert_eq!(probe_secure_boot(Some(false)).status, Status::Warn);
+        assert_eq!(probe_secure_boot(None).status, Status::Warn);
+    }
+
+    #[test]
+    fn virt_states() {
+        assert_eq!(probe_virt(None).status, Status::Pass);
+        assert_eq!(probe_virt(Some("kvm")).status, Status::Warn);
+    }
+
+    #[test]
+    fn network_states() {
+        assert_eq!(probe_network(true).status, Status::Pass);
+        assert_eq!(probe_network(false).status, Status::Warn);
     }
 }
