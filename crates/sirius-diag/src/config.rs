@@ -1,6 +1,7 @@
 //! Loads the page-toggle and diagnostics configuration from `sirius.toml`.
 
 use serde::Deserialize;
+use std::path::Path;
 
 /// The full installer configuration file.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -89,6 +90,45 @@ impl PagesConfig {
     }
 }
 
+/// Default on-disk config path shipped in the ISO.
+pub const CONFIG_PATH: &str = "/etc/sirius/sirius.toml";
+
+impl SiriusConfig {
+    /// Load config from a path. A missing or malformed file falls back to defaults
+    /// rather than aborting (the spec requires the installer to keep working).
+    /// Returns the config plus an optional warning string for the caller to log.
+    pub fn load_or_default(path: &Path) -> (Self, Option<String>) {
+        match std::fs::read_to_string(path) {
+            Ok(src) => match Self::from_toml(&src) {
+                Ok(cfg) => (cfg, None),
+                Err(e) => (
+                    Self::default(),
+                    Some(format!("malformed config at {}: {e}", path.display())),
+                ),
+            },
+            Err(_) => (
+                Self::default(),
+                Some(format!(
+                    "no config at {}; using built-in defaults",
+                    path.display()
+                )),
+            ),
+        }
+    }
+}
+
+impl Default for SiriusConfig {
+    fn default() -> Self {
+        Self {
+            pages: PagesConfig::default(),
+            diagnostics: DiagnosticsConfig {
+                require: vec!["uefi".into(), "ram".into(), "disk_space".into()],
+                warn: vec!["secure_boot".into(), "network".into(), "virt".into()],
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,5 +198,34 @@ warn = ["secure_boot", "network", "virt"]
     fn resolve_empty_order_uses_default() {
         let pages = PagesConfig::default();
         assert_eq!(pages.resolve(), DEFAULT_ORDER);
+    }
+
+    #[test]
+    fn load_missing_file_warns_and_defaults() {
+        let (cfg, warning) = SiriusConfig::load_or_default(Path::new("/no/such/sirius.toml"));
+        assert!(warning.is_some());
+        assert_eq!(cfg.diagnostics.require, vec!["uefi", "ram", "disk_space"]);
+    }
+
+    #[test]
+    fn load_malformed_file_warns_and_defaults() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("sirius-test-bad.toml");
+        std::fs::write(&path, "this is = = not toml").unwrap();
+        let (cfg, warning) = SiriusConfig::load_or_default(&path);
+        assert!(warning.unwrap().contains("malformed"));
+        assert_eq!(cfg, SiriusConfig::default());
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn load_valid_file_no_warning() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("sirius-test-good.toml");
+        std::fs::write(&path, "[pages]\norder = [\"welcome\"]\n").unwrap();
+        let (cfg, warning) = SiriusConfig::load_or_default(&path);
+        assert!(warning.is_none());
+        assert_eq!(cfg.pages.order, vec!["welcome"]);
+        std::fs::remove_file(&path).ok();
     }
 }
