@@ -7,6 +7,7 @@ use crate::pages::disk::DiskPage;
 use crate::pages::keyboard::KeyboardPage;
 use crate::pages::network::NetworkPage;
 use crate::pages::partition::PartitionPage;
+use crate::pages::summary::{SummaryMsg, SummaryPage};
 use crate::pages::timezone::TimezonePage;
 use crate::pages::user::UserPage;
 use crate::pages::welcome::WelcomePage;
@@ -30,6 +31,7 @@ pub struct AppModel {
     _disk: Controller<DiskPage>,
     _partition: Controller<PartitionPage>,
     _user: Controller<UserPage>,
+    summary: Controller<SummaryPage>,
 }
 
 #[derive(Debug)]
@@ -137,6 +139,10 @@ impl SimpleComponent for AppModel {
             .launch(())
             .forward(sender.input_sender(), AppMsg::Page);
 
+        let summary = SummaryPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
         let model = AppModel {
             config: InstallConfig::default(),
             nav,
@@ -149,6 +155,7 @@ impl SimpleComponent for AppModel {
             _disk: disk,
             _partition: partition,
             _user: user,
+            summary,
         };
 
         let widgets = view_output!();
@@ -176,6 +183,9 @@ impl SimpleComponent for AppModel {
         widgets
             .stack
             .add_named(model._user.widget(), Some("user"));
+        widgets
+            .stack
+            .add_named(model.summary.widget(), Some("summary"));
 
         ComponentParts { model, widgets }
     }
@@ -186,6 +196,9 @@ impl SimpleComponent for AppModel {
             AppMsg::Next => {
                 self.nav.next();
                 self.can_proceed = true;
+                if self.nav.current() == "summary" {
+                    self.summary.sender().send(SummaryMsg::Show(self.config.clone())).ok();
+                }
             }
             AppMsg::Back => {
                 self.nav.prev();
