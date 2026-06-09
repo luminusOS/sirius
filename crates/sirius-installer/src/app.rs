@@ -60,6 +60,8 @@ pub enum AppMsg {
     Page(PageOutput),
     Next,
     Back,
+    StartInstall,
+    Progress(crate::backend::Progress),
 }
 
 #[relm4::component(pub)]
@@ -235,19 +237,73 @@ impl SimpleComponent for AppModel {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             AppMsg::Page(out) => self.apply_page_output(out),
             AppMsg::Next => {
+                let was = self.nav.current().to_string();
                 self.nav.next();
                 self.can_proceed = self.gate_for();
                 if self.nav.current() == "summary" {
                     self.summary.sender().send(SummaryMsg::Show(self.config.clone())).ok();
                 }
+                if was == "summary" && self.nav.current() == "progress" {
+                    sender.input(AppMsg::StartInstall);
+                }
             }
             AppMsg::Back => {
                 self.nav.prev();
                 self.can_proceed = self.gate_for();
+            }
+            AppMsg::StartInstall => {
+                // Load the distro descriptor: prefer the installed path, fall back to the
+                // in-tree data file for dev/VM runs.
+                let descriptor = std::fs::read_to_string(crate::backend::distro::DISTRO_PATH)
+                    .or_else(|_| std::fs::read_to_string("data/luminus.toml"))
+                    .ok()
+                    .and_then(|s| crate::backend::distro::DistroDescriptor::from_toml(&s).ok());
+                let Some(descriptor) = descriptor else {
+                    self.progress.sender().send(crate::pages::progress::ProgressMsg::Update {
+                        fraction: 0.0,
+                        line: "ERROR: missing or invalid distro descriptor (luminus.toml)".into(),
+                    }).ok();
+                    return;
+                };
+                match crate::backend::adapter::build_request(&self.config, &descriptor) {
+                    Ok(req) => {
+                        let exe = std::env::current_exe()
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .unwrap_or_else(|_| "/usr/bin/sirius".into());
+                        let s = sender.clone();
+                        std::thread::spawn(move || {
+                            let _ = crate::backend::spawn::run_install(&req, &exe, |p| {
+                                s.input(AppMsg::Progress(p));
+                            });
+                        });
+                    }
+                    Err(e) => {
+                        self.progress.sender().send(crate::pages::progress::ProgressMsg::Update {
+                            fraction: 0.0,
+                            line: format!("ERROR: cannot start install: {e}"),
+                        }).ok();
+                    }
+                }
+            }
+            AppMsg::Progress(p) => {
+                use crate::backend::Progress;
+                use crate::pages::progress::ProgressMsg;
+                match p {
+                    Progress::Step { fraction, message } => {
+                        self.progress.sender().send(ProgressMsg::Update { fraction, line: message }).ok();
+                    }
+                    Progress::Finished => {
+                        // Progress page's Done emits RequestNext, which advances the navigator to "finished".
+                        self.progress.sender().send(ProgressMsg::Done).ok();
+                    }
+                    Progress::Error { message } => {
+                        self.progress.sender().send(ProgressMsg::Update { fraction: 0.0, line: format!("ERROR: {message}") }).ok();
+                    }
+                }
             }
         }
     }

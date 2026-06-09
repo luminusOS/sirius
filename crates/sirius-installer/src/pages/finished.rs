@@ -42,7 +42,11 @@ impl SimpleComponent for FinishedPage {
 
     fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         let FinishedMsg::Reboot = msg;
-        // Plan 3 replaces this with an actual reboot via the runner.
-        tracing::info!("reboot requested");
+        // Reboot the machine. On a dev box without privileges this will fail; log and
+        // leave the user to reboot manually.
+        match std::process::Command::new("systemctl").arg("reboot").status() {
+            Ok(_) => {}
+            Err(e) => tracing::error!("reboot failed: {e}"),
+        }
     }
 }
