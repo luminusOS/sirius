@@ -38,6 +38,7 @@
 pub mod adapter;
 pub mod distro;
 pub mod runner;
+pub mod spawn;
 
 /// Progress reported to the UI, decoupled from libreadymade's `PlaybookProgress`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
