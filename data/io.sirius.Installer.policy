@@ -3,11 +3,11 @@
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
 <policyconfig>
-  <vendor>LuminusOS</vendor>
-  <vendor_url>https://luminusos.dev</vendor_url>
-  <action id="dev.luminusos.Sirius.run-playbook">
-    <description>Install LuminusOS</description>
-    <message>Authentication is required to install LuminusOS</message>
+  <vendor>Sirius</vendor>
+  <vendor_url>https://github.com/</vendor_url>
+  <action id="io.sirius.Installer.run-playbook">
+    <description>Install the operating system</description>
+    <message>Authentication is required to install the operating system</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

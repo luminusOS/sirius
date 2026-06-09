@@ -1,0 +1,5 @@
+# Distro install descriptor for Sirius (a distro-agnostic installer).
+# Installed to /etc/sirius/distro.toml. Set these for your distribution's
+# bootc/OCI image and its systemd-repart partition layout.
+bootc_image = "ghcr.io/example/os:latest"
+repart_dir = "/usr/share/sirius/repart.d"

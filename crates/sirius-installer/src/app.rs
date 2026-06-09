@@ -259,13 +259,13 @@ impl SimpleComponent for AppModel {
                 // Load the distro descriptor: prefer the installed path, fall back to the
                 // in-tree data file for dev/VM runs.
                 let descriptor = std::fs::read_to_string(crate::backend::distro::DISTRO_PATH)
-                    .or_else(|_| std::fs::read_to_string("data/luminus.toml"))
+                    .or_else(|_| std::fs::read_to_string("data/distro.toml"))
                     .ok()
                     .and_then(|s| crate::backend::distro::DistroDescriptor::from_toml(&s).ok());
                 let Some(descriptor) = descriptor else {
                     self.progress.sender().send(crate::pages::progress::ProgressMsg::Update {
                         fraction: 0.0,
-                        line: "ERROR: missing or invalid distro descriptor (luminus.toml)".into(),
+                        line: "ERROR: missing or invalid distro descriptor (distro.toml)".into(),
                     }).ok();
                     return;
                 };

@@ -1,5 +1,5 @@
 //! End-to-end install test. Ignored by default: needs root, a scratch disk, and a
-//! live LuminusOS environment. Run inside the VM with:
+//! live target environment. Run inside the VM with:
 //!   sudo -E cargo test --test vm_install -- --ignored vm_full_install
 //!
 //! Set SIRIUS_TEST_DISK to a throwaway block device (e.g. /dev/vdb).
@@ -14,9 +14,9 @@ fn vm_full_install() {
     assert!(disk.starts_with("/dev/"), "refusing non-/dev disk: {disk}");
 
     let request = format!(
-        r#"{{"bootc_image":"ghcr.io/luminusos/workstation:44","repart_dir":"/usr/share/sirius/repart.d",
+        r#"{{"bootc_image":"ghcr.io/example/os:latest","repart_dir":"/usr/share/sirius/repart.d",
             "target_disk":"{disk}","encrypt":false,"tpm":false,"encryption_key":"",
-            "locale":"en_US","keyboard":"us","timezone":"UTC","hostname":"luminus",
+            "locale":"en_US","keyboard":"us","timezone":"UTC","hostname":"localhost",
             "username":"demo","full_name":"Demo"}}"#
     );
 

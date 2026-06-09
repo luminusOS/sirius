@@ -82,7 +82,7 @@ mod tests {
             username: "ada".into(),
             password: "hunter2hunter".into(),
             password_confirm: "hunter2hunter".into(),
-            hostname: "luminus".into(),
+            hostname: "localhost".into(),
         }
     }
 

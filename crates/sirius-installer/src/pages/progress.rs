@@ -22,7 +22,7 @@ impl SimpleComponent for ProgressPage {
 
     view! {
         adw::StatusPage {
-            set_title: "Installing LuminusOS",
+            set_title: "Installing the system",
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,

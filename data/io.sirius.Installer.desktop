@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Install Operating System
+Comment=Diagnostic OS installer
+Exec=/usr/bin/sirius
+Icon=io.sirius.Installer
+Terminal=false
+Type=Application
+Categories=System;

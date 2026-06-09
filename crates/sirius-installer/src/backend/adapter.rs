@@ -72,7 +72,7 @@ impl InstallRequest {
     ///
     /// - map `locale` -> `Module::Language { lang }`, and
     /// - emit `Module::InitialSetup`, which writes `/.unconfigured` to trigger
-    ///   the distro's first-boot setup agent (e.g. Taidan) where the user
+    ///   the distribution's first-boot setup agent (e.g. gnome-initial-setup) where the user
     ///   account and hostname are configured on next boot.
     ///
     /// `username`/`full_name`/`hostname`/`timezone`/`keyboard` are carried on the
@@ -127,7 +127,7 @@ mod tests {
 
     fn descriptor() -> DistroDescriptor {
         DistroDescriptor {
-            bootc_image: "ghcr.io/luminusos/workstation:44".into(),
+            bootc_image: "ghcr.io/example/os:latest".into(),
             repart_dir: "/usr/share/sirius/repart.d".into(),
         }
     }
@@ -146,7 +146,7 @@ mod tests {
                 username: "ada".into(),
                 password: "hunter2hunter".into(),
                 password_confirm: "hunter2hunter".into(),
-                hostname: "luminus".into(),
+                hostname: "localhost".into(),
             },
         }
     }
@@ -155,7 +155,7 @@ mod tests {
     fn builds_request_from_full_config() {
         let req = build_request(&full_config(), &descriptor()).unwrap();
         assert_eq!(req.target_disk, "/dev/sda");
-        assert_eq!(req.bootc_image, "ghcr.io/luminusos/workstation:44");
+        assert_eq!(req.bootc_image, "ghcr.io/example/os:latest");
         assert!(req.encrypt);
         assert!(req.tpm);
         assert_eq!(req.timezone, "America/Sao_Paulo");

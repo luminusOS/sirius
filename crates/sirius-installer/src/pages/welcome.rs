@@ -20,8 +20,8 @@ impl SimpleComponent for WelcomePage {
     view! {
         adw::StatusPage {
             set_icon_name: Some("starred-symbolic"),
-            set_title: "Welcome to LuminusOS",
-            set_description: Some("Sirius will guide you through installation."),
+            set_title: "Welcome",
+            set_description: Some("This assistant will guide you through installation."),
 
             #[wrap(Some)]
             set_child = &gtk::Box {

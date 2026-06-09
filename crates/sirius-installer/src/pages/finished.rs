@@ -19,7 +19,7 @@ impl SimpleComponent for FinishedPage {
         adw::StatusPage {
             set_icon_name: Some("emblem-ok-symbolic"),
             set_title: "Installation complete",
-            set_description: Some("LuminusOS is installed. Reboot to start using it."),
+            set_description: Some("The system is installed. Reboot to start using it."),
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,

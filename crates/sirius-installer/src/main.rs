@@ -16,7 +16,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "sirius", about = "LuminusOS diagnostic installer")]
+#[command(name = "sirius", about = "Distro-agnostic diagnostic installer")]
 struct Cli {
     /// Build and print the install config from defaults, then exit without installing.
     #[arg(long)]
@@ -75,13 +75,13 @@ fn sirius_installer_dry_run() -> serde_json::Value {
             username: "demo".into(),
             password: "demopassword".into(),
             password_confirm: "demopassword".into(),
-            hostname: "luminus".into(),
+            hostname: "localhost".into(),
         },
     };
     let distro = backend::distro::DistroDescriptor::from_toml(
-        &std::fs::read_to_string("data/luminus.toml").unwrap_or_default(),
+        &std::fs::read_to_string("data/distro.toml").unwrap_or_default(),
     )
-    .expect("data/luminus.toml must parse");
+    .expect("data/distro.toml must parse");
     let req = backend::adapter::build_request(&cfg, &distro).expect("dry-run config must be valid");
     serde_json::to_value(req).unwrap()
 }
