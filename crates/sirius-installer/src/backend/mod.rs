@@ -35,6 +35,7 @@
 //! a direct dependency here, so the anchor below references the API items by name
 //! rather than spelling out the `color_eyre::Result<()>` return type.
 
+pub mod adapter;
 pub mod distro;
 
 /// Progress reported to the UI, decoupled from libreadymade's `PlaybookProgress`.
