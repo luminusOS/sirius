@@ -23,7 +23,9 @@ pub fn run_all_checks(facts: &SystemFacts) -> Vec<Check> {
 }
 
 /// Whether the install may proceed: blocked only when a `required` check failed.
-/// `require` is the list of check ids that hard-gate the install.
+/// `require` is the list of check ids that hard-gate the install. A check only
+/// blocks if it both reports `Status::Fail` (probes own their severity) and its
+/// id is in `require`; warning-level checks never block. See [`crate::config::DiagnosticsConfig`].
 pub fn is_blocked(checks: &[Check], require: &[String]) -> bool {
     checks
         .iter()

@@ -21,7 +21,15 @@ pub struct PagesConfig {
     pub disabled: Vec<String>,
 }
 
-/// Which diagnostics checks hard-gate vs warn.
+/// Diagnostics gating policy.
+///
+/// Each probe owns its own severity (`Pass`/`Warn`/`Fail`) — config does NOT
+/// reclassify a check. `require` selects which *failing* checks (`Status::Fail`)
+/// hard-gate the install (see [`crate::report::is_blocked`]); a `Fail` whose id
+/// is not in `require` is surfaced but does not block. `warn` is advisory
+/// metadata for the UI (which ids to emphasize as warnings) and is not consulted
+/// by gating. (Plan 2's diagnostics page reads `warn`; revisit if config should
+/// be able to promote a check to a hard requirement.)
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
 pub struct DiagnosticsConfig {
     #[serde(default)]
