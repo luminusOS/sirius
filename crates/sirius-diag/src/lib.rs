@@ -8,5 +8,5 @@ pub mod report;
 
 pub use check::{Check, Status};
 pub use config::SiriusConfig;
-pub use facts::SystemFacts;
+pub use facts::{list_disks, DiskInfo, SystemFacts};
 pub use report::{is_blocked, run_all_checks};

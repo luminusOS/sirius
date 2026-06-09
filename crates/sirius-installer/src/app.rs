@@ -3,6 +3,7 @@
 use crate::config_model::InstallConfig;
 use crate::navigator::Navigator;
 use crate::pages::diagnostics::{DiagnosticsInit, DiagnosticsPage};
+use crate::pages::disk::DiskPage;
 use crate::pages::keyboard::KeyboardPage;
 use crate::pages::network::NetworkPage;
 use crate::pages::timezone::TimezonePage;
@@ -24,6 +25,7 @@ pub struct AppModel {
     _network: Controller<NetworkPage>,
     _keyboard: Controller<KeyboardPage>,
     _timezone: Controller<TimezonePage>,
+    _disk: Controller<DiskPage>,
 }
 
 #[derive(Debug)]
@@ -119,6 +121,10 @@ impl SimpleComponent for AppModel {
             .launch(())
             .forward(sender.input_sender(), AppMsg::Page);
 
+        let disk = DiskPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
         let model = AppModel {
             config: InstallConfig::default(),
             nav,
@@ -128,6 +134,7 @@ impl SimpleComponent for AppModel {
             _network: network,
             _keyboard: keyboard,
             _timezone: timezone,
+            _disk: disk,
         };
 
         let widgets = view_output!();
@@ -146,6 +153,9 @@ impl SimpleComponent for AppModel {
         widgets
             .stack
             .add_named(model._timezone.widget(), Some("timezone"));
+        widgets
+            .stack
+            .add_named(model._disk.widget(), Some("disk"));
 
         ComponentParts { model, widgets }
     }

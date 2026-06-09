@@ -2,6 +2,7 @@
 //! up to AppModel, which folds the change into InstallConfig.
 
 pub mod diagnostics;
+pub mod disk;
 pub mod keyboard;
 pub mod network;
 pub mod timezone;

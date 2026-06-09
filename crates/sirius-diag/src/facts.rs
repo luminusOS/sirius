@@ -67,6 +67,37 @@ fn detect_virt() -> Option<String> {
     }
 }
 
+/// A whole disk available as an install target.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiskInfo {
+    pub path: String,
+    pub model: String,
+    pub size_bytes: u64,
+}
+
+/// List candidate target disks via `lsblk -b -d -n -o NAME,SIZE,MODEL`.
+/// Returns an empty list on error (caller shows "no disks found").
+pub fn list_disks() -> Vec<DiskInfo> {
+    let out = std::process::Command::new("lsblk")
+        .args(["-b", "-d", "-n", "-o", "NAME,SIZE,MODEL"])
+        .output();
+    let Ok(out) = out else { return Vec::new() };
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let name = parts.next()?;
+            let size = parts.next()?.parse::<u64>().ok()?;
+            let model = parts.collect::<Vec<_>>().join(" ");
+            Some(DiskInfo {
+                path: format!("/dev/{name}"),
+                model: if model.is_empty() { "Disk".into() } else { model },
+                size_bytes: size,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
