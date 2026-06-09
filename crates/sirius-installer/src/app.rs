@@ -3,6 +3,9 @@
 use crate::config_model::InstallConfig;
 use crate::navigator::Navigator;
 use crate::pages::diagnostics::{DiagnosticsInit, DiagnosticsPage};
+use crate::pages::keyboard::KeyboardPage;
+use crate::pages::network::NetworkPage;
+use crate::pages::timezone::TimezonePage;
 use crate::pages::welcome::WelcomePage;
 use crate::pages::PageOutput;
 use relm4::adw::prelude::*;
@@ -18,6 +21,9 @@ pub struct AppModel {
     can_proceed: bool,
     _welcome: Controller<WelcomePage>,
     _diagnostics: Controller<DiagnosticsPage>,
+    _network: Controller<NetworkPage>,
+    _keyboard: Controller<KeyboardPage>,
+    _timezone: Controller<TimezonePage>,
 }
 
 #[derive(Debug)]
@@ -101,12 +107,27 @@ impl SimpleComponent for AppModel {
             .launch(DiagnosticsInit { require: diag_require })
             .forward(sender.input_sender(), AppMsg::Page);
 
+        let network = NetworkPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
+        let keyboard = KeyboardPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
+        let timezone = TimezonePage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
         let model = AppModel {
             config: InstallConfig::default(),
             nav,
             can_proceed: true,
             _welcome: welcome,
             _diagnostics: diagnostics,
+            _network: network,
+            _keyboard: keyboard,
+            _timezone: timezone,
         };
 
         let widgets = view_output!();
@@ -116,6 +137,15 @@ impl SimpleComponent for AppModel {
         widgets
             .stack
             .add_named(model._diagnostics.widget(), Some("diagnostics"));
+        widgets
+            .stack
+            .add_named(model._network.widget(), Some("network"));
+        widgets
+            .stack
+            .add_named(model._keyboard.widget(), Some("keyboard"));
+        widgets
+            .stack
+            .add_named(model._timezone.widget(), Some("timezone"));
 
         ComponentParts { model, widgets }
     }
