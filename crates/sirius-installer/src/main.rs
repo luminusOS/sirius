@@ -60,12 +60,30 @@ fn main() -> ExitCode {
     }
 }
 
-fn sirius_installer_dry_run() -> config_model::InstallConfig {
-    use config_model::{InstallConfig, InstallType};
-    let mut cfg = InstallConfig::default();
-    cfg.locale = Some("en_US".into());
-    cfg.install_type = Some(InstallType::WholeDisk);
-    cfg
+fn sirius_installer_dry_run() -> serde_json::Value {
+    use config_model::{InstallConfig, InstallType, UserAccount};
+    let cfg = InstallConfig {
+        locale: Some("en_US".into()),
+        keyboard: Some("us".into()),
+        timezone: Some("UTC".into()),
+        destination_disk: Some("/dev/sda".into()),
+        install_type: Some(InstallType::WholeDisk),
+        encrypt: false,
+        tpm: false,
+        user: UserAccount {
+            full_name: "Demo User".into(),
+            username: "demo".into(),
+            password: "demopassword".into(),
+            password_confirm: "demopassword".into(),
+            hostname: "luminus".into(),
+        },
+    };
+    let distro = backend::distro::DistroDescriptor::from_toml(
+        &std::fs::read_to_string("data/luminus.toml").unwrap_or_default(),
+    )
+    .expect("data/luminus.toml must parse");
+    let req = backend::adapter::build_request(&cfg, &distro).expect("dry-run config must be valid");
+    serde_json::to_value(req).unwrap()
 }
 
 fn run_diag(json: bool) -> ExitCode {
