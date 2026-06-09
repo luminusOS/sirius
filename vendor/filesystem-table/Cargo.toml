@@ -1,0 +1,28 @@
+[package]
+name = "filesystem-table"
+version = "0.1.2"
+edition = "2024"
+
+authors = [
+    "Cappy Ishihara <cappy@fyralabs.com>",
+    "madonuko <mado@fyralabs.com>",
+]
+license = "MIT"
+categories = ["filesystem", "encoding"]
+keywords = ["fstab", "mtab", "filesystem"]
+readme = "README.md"
+repository = "https://github.com/FyraLabs/readymade"
+description = "A library for reading and writing filesystem tables."
+
+# NOTE: vendored copy of FyraLabs/readymade crates/filesystem-table at
+# rev ccdf092314b2241ec13ede2381d8174b051d5d09, with a one-line fix at lib.rs:306
+# (a bad clippy autofix compared a PathBuf against a String). Used via
+# [patch."https://github.com/FyraLabs/readymade.git"] in the workspace root.
+# Self-contained: upstream `[lints] workspace = true` removed; deps already concrete.
+
+[lib]
+path = "./lib.rs"
+
+[dependencies]
+thiserror = "2.0.12"
+lsblk = "0.6"

@@ -18,3 +18,17 @@ adw = { version = "0.8", package = "libadwaita" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 anyhow = "1"
+# Pinned to FyraLabs/readymade main HEAD (2026-06-09). Its sibling crate
+# `filesystem-table` fails to build at HEAD due to a bad clippy autofix, so it is
+# overridden via the [patch] section below with a vendored, fixed copy.
+# `default-features = false` disables the `uutils` feature, which pulls in
+# `uu_cp`/`exacl` and forces linking against `libacl.so` (the `libacl-devel`
+# system package, absent on this host). It only gates one of three copy backends
+# (`copy_dir_uutils`); the default copy method is the native `rdm` implementation,
+# so dropping it does not affect the install path we need.
+libreadymade = { git = "https://github.com/FyraLabs/readymade.git", rev = "ccdf092314b2241ec13ede2381d8174b051d5d09", default-features = false }
+
+# Override readymade's `filesystem-table` (version 0.1.2) with our vendored copy
+# that carries the one-line fix at lib.rs:306 (PathBuf vs String comparison).
+[patch."https://github.com/FyraLabs/readymade.git"]
+filesystem-table = { path = "vendor/filesystem-table" }

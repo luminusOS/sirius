@@ -2,6 +2,7 @@
 //! Plan 2 adds the GTK wizard (default, no subcommand) and Plan 3 adds `--run-playbook`.
 
 mod app;
+mod backend;
 mod config_model;
 mod gui;
 mod logging;
