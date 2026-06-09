@@ -8,6 +8,7 @@ use crate::pages::keyboard::KeyboardPage;
 use crate::pages::network::NetworkPage;
 use crate::pages::partition::PartitionPage;
 use crate::pages::timezone::TimezonePage;
+use crate::pages::user::UserPage;
 use crate::pages::welcome::WelcomePage;
 use crate::pages::PageOutput;
 use relm4::adw::prelude::*;
@@ -28,6 +29,7 @@ pub struct AppModel {
     _timezone: Controller<TimezonePage>,
     _disk: Controller<DiskPage>,
     _partition: Controller<PartitionPage>,
+    _user: Controller<UserPage>,
 }
 
 #[derive(Debug)]
@@ -131,6 +133,10 @@ impl SimpleComponent for AppModel {
             .launch(())
             .forward(sender.input_sender(), AppMsg::Page);
 
+        let user = UserPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
         let model = AppModel {
             config: InstallConfig::default(),
             nav,
@@ -142,6 +148,7 @@ impl SimpleComponent for AppModel {
             _timezone: timezone,
             _disk: disk,
             _partition: partition,
+            _user: user,
         };
 
         let widgets = view_output!();
@@ -166,6 +173,9 @@ impl SimpleComponent for AppModel {
         widgets
             .stack
             .add_named(model._partition.widget(), Some("partition"));
+        widgets
+            .stack
+            .add_named(model._user.widget(), Some("user"));
 
         ComponentParts { model, widgets }
     }

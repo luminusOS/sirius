@@ -7,6 +7,7 @@ pub mod keyboard;
 pub mod network;
 pub mod partition;
 pub mod timezone;
+pub mod user;
 pub mod welcome;
 
 use crate::config_model::{InstallType, UserAccount};
