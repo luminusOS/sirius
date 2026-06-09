@@ -4,9 +4,11 @@ use crate::config_model::InstallConfig;
 use crate::navigator::Navigator;
 use crate::pages::diagnostics::{DiagnosticsInit, DiagnosticsPage};
 use crate::pages::disk::DiskPage;
+use crate::pages::finished::FinishedPage;
 use crate::pages::keyboard::KeyboardPage;
 use crate::pages::network::NetworkPage;
 use crate::pages::partition::PartitionPage;
+use crate::pages::progress::ProgressPage;
 use crate::pages::summary::{SummaryMsg, SummaryPage};
 use crate::pages::timezone::TimezonePage;
 use crate::pages::user::UserPage;
@@ -32,6 +34,8 @@ pub struct AppModel {
     _partition: Controller<PartitionPage>,
     _user: Controller<UserPage>,
     summary: Controller<SummaryPage>,
+    progress: Controller<ProgressPage>,
+    finished: Controller<FinishedPage>,
 }
 
 #[derive(Debug)]
@@ -143,6 +147,14 @@ impl SimpleComponent for AppModel {
             .launch(())
             .forward(sender.input_sender(), AppMsg::Page);
 
+        let progress = ProgressPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
+        let finished = FinishedPage::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppMsg::Page);
+
         let model = AppModel {
             config: InstallConfig::default(),
             nav,
@@ -156,6 +168,8 @@ impl SimpleComponent for AppModel {
             _partition: partition,
             _user: user,
             summary,
+            progress,
+            finished,
         };
 
         let widgets = view_output!();
@@ -186,6 +200,12 @@ impl SimpleComponent for AppModel {
         widgets
             .stack
             .add_named(model.summary.widget(), Some("summary"));
+        widgets
+            .stack
+            .add_named(model.progress.widget(), Some("progress"));
+        widgets
+            .stack
+            .add_named(model.finished.widget(), Some("finished"));
 
         ComponentParts { model, widgets }
     }

@@ -3,9 +3,11 @@
 
 pub mod diagnostics;
 pub mod disk;
+pub mod finished;
 pub mod keyboard;
 pub mod network;
 pub mod partition;
+pub mod progress;
 pub mod summary;
 pub mod timezone;
 pub mod user;
