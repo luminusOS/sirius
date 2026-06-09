@@ -33,10 +33,17 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Internal: execute an install request from stdin (run under pkexec). Not for direct use.
+    #[command(hide = true)]
+    RunPlaybook,
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    // Handle the privileged subprocess entry point before any logging or GUI setup.
+    if matches!(cli.command, Some(Command::RunPlaybook)) {
+        return ExitCode::from(backend::runner::run() as u8);
+    }
     let _log = logging::init();
     if cli.dry_run {
         let cfg = sirius_installer_dry_run();
@@ -45,6 +52,7 @@ fn main() -> ExitCode {
     }
     match cli.command {
         Some(Command::Diag { json }) => run_diag(json),
+        Some(Command::RunPlaybook) => unreachable!("handled above"),
         None => {
             gui::run();
             ExitCode::SUCCESS
