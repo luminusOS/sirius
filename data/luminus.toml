@@ -1,0 +1,3 @@
+# LuminusOS install descriptor for Sirius. Installed to /etc/sirius/luminus.toml.
+bootc_image = "ghcr.io/luminusos/workstation:44"
+repart_dir = "/usr/share/sirius/repart.d"

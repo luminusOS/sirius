@@ -13,6 +13,7 @@ sirius-diag = { path = "../sirius-diag" }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 relm4 = { workspace = true }
 gtk4 = { workspace = true }
 adw = { workspace = true }
