@@ -42,7 +42,8 @@ pub struct AppModel {
     nav: Navigator,
     can_proceed: bool,
     diagnostics_blocked: bool,
-    _welcome: Controller<WelcomePage>,
+    lang: crate::i18n::Lang,
+    welcome: Controller<WelcomePage>,
     _diagnostics: Controller<DiagnosticsPage>,
     _network: Controller<NetworkPage>,
     _keyboard: Controller<KeyboardPage>,
@@ -80,14 +81,16 @@ impl SimpleComponent for AppModel {
             set_content = &adw::ToolbarView {
                 add_top_bar = &adw::HeaderBar {
                     pack_start = &gtk::Button {
-                        set_label: "Back",
+                        #[watch]
+                        set_label: crate::i18n::tr(model.lang, "nav.back"),
                         #[watch]
                         set_sensitive: !model.nav.is_first(),
                         connect_clicked => AppMsg::Back,
                     },
 
                     pack_end = &gtk::Button {
-                        set_label: "Next",
+                        #[watch]
+                        set_label: crate::i18n::tr(model.lang, "nav.next"),
                         add_css_class: "suggested-action",
                         #[watch]
                         set_sensitive: model.can_proceed,
@@ -182,7 +185,8 @@ impl SimpleComponent for AppModel {
             nav,
             can_proceed: true,
             diagnostics_blocked,
-            _welcome: welcome,
+            lang: crate::i18n::Lang::default(),
+            welcome,
             _diagnostics: diagnostics,
             _network: network,
             _keyboard: keyboard,
@@ -200,7 +204,7 @@ impl SimpleComponent for AppModel {
         let widgets = view_output!();
         widgets
             .stack
-            .add_named(model._welcome.widget(), Some("welcome"));
+            .add_named(model.welcome.widget(), Some("welcome"));
         widgets
             .stack
             .add_named(model._diagnostics.widget(), Some("diagnostics"));
@@ -312,7 +316,14 @@ impl SimpleComponent for AppModel {
 impl AppModel {
     fn apply_page_output(&mut self, out: PageOutput) {
         match out {
-            PageOutput::SetLocale(v) => self.config.locale = Some(v),
+            PageOutput::SetLocale(v) => {
+                let lang = crate::i18n::Lang::from_locale(&v);
+                self.config.locale = Some(v);
+                if lang != self.lang {
+                    self.lang = lang;
+                    self.broadcast_lang(lang);
+                }
+            }
             PageOutput::SetKeyboard(v) => self.config.keyboard = Some(v),
             PageOutput::SetTimezone(v) => self.config.timezone = Some(v),
             PageOutput::SetDisk(v) => self.config.destination_disk = Some(v),
@@ -335,6 +346,12 @@ impl AppModel {
                 }
             }
         }
+    }
+
+    fn broadcast_lang(&self, lang: crate::i18n::Lang) {
+        use crate::pages::welcome::WelcomeMsg;
+        self.welcome.sender().send(WelcomeMsg::SetLang(lang)).ok();
+        // Tasks B and C add the other pages here.
     }
 
     /// Decide whether Next is allowed for the CURRENT page, based purely on

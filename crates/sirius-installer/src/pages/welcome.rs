@@ -4,11 +4,14 @@ use super::PageOutput;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
-pub struct WelcomePage;
+pub struct WelcomePage {
+    lang: crate::i18n::Lang,
+}
 
 #[derive(Debug)]
 pub enum WelcomeMsg {
     LocaleChosen(String),
+    SetLang(crate::i18n::Lang),
 }
 
 #[relm4::component(pub)]
@@ -20,8 +23,10 @@ impl SimpleComponent for WelcomePage {
     view! {
         adw::StatusPage {
             set_icon_name: Some("starred-symbolic"),
-            set_title: "Welcome",
-            set_description: Some("This assistant will guide you through installation."),
+            #[watch]
+            set_title: crate::i18n::tr(model.lang, "welcome.title"),
+            #[watch]
+            set_description: Some(crate::i18n::tr(model.lang, "welcome.desc")),
 
             #[wrap(Some)]
             set_child = &gtk::Box {
@@ -45,7 +50,9 @@ impl SimpleComponent for WelcomePage {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = WelcomePage;
+        let model = WelcomePage {
+            lang: crate::i18n::Lang::En,
+        };
         let widgets = view_output!();
         sender.output(PageOutput::SetLocale("en_US".to_string())).ok();
         ComponentParts { model, widgets }
@@ -55,6 +62,9 @@ impl SimpleComponent for WelcomePage {
         match msg {
             WelcomeMsg::LocaleChosen(locale) => {
                 sender.output(PageOutput::SetLocale(locale)).ok();
+            }
+            WelcomeMsg::SetLang(l) => {
+                self.lang = l;
             }
         }
     }

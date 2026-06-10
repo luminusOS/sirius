@@ -5,6 +5,7 @@ mod app;
 mod backend;
 mod config_model;
 mod gui;
+mod i18n;
 mod logging;
 mod navigator;
 mod pages;
