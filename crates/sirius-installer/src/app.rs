@@ -54,8 +54,6 @@ pub struct AppModel {
     summary: Controller<SummaryPage>,
     progress: Controller<ProgressPage>,
     finished: Controller<FinishedPage>,
-    carousel: Option<adw::Carousel>,
-    page_widgets: std::collections::HashMap<String, gtk::Widget>,
 }
 
 #[derive(Debug)]
@@ -98,21 +96,21 @@ impl SimpleComponent for AppModel {
                         set_sensitive: model.can_proceed,
                         connect_clicked => AppMsg::Next,
                     },
-
-                    #[name = "dots"]
-                    #[wrap(Some)]
-                    set_title_widget = &adw::CarouselIndicatorDots {
-                    },
                 },
 
-                #[name = "carousel"]
+                #[name = "stack"]
                 #[wrap(Some)]
-                set_content = &adw::Carousel {
+                set_content = &gtk::Stack {
                     set_vexpand: true,
-                    set_interactive: false,
-                    set_allow_scroll_wheel: false,
-                    set_allow_mouse_drag: false,
-                    set_allow_long_swipes: false,
+                    // Slide animation between pages (carousel-like motion) without
+                    // the AdwCarousel neighbour-peek artifact.
+                    set_transition_type: gtk::StackTransitionType::SlideLeftRight,
+                    set_transition_duration: 250,
+                    // skip_init: children are added imperatively *after*
+                    // view_output!(); the explicit set below picks the
+                    // first page. The watch still drives later navigation.
+                    #[watch(skip_init)]
+                    set_visible_child_name: model.nav.current(),
                 },
             },
         }
@@ -133,7 +131,6 @@ impl SimpleComponent for AppModel {
             .into_iter()
             .filter(|p| IMPLEMENTED_PAGES.contains(&p.as_str()))
             .collect();
-        let pages_order = pages.clone();
         let nav = Navigator::new(pages);
         let diag_config = cfg.diagnostics.clone();
 
@@ -206,36 +203,46 @@ impl SimpleComponent for AppModel {
             summary,
             progress,
             finished,
-            carousel: None,
-            page_widgets: std::collections::HashMap::new(),
         };
 
         model.can_proceed = model.gate_for();
 
         let widgets = view_output!();
+        widgets
+            .stack
+            .add_named(model.welcome.widget(), Some("welcome"));
+        widgets
+            .stack
+            .add_named(model._diagnostics.widget(), Some("diagnostics"));
+        widgets
+            .stack
+            .add_named(model._network.widget(), Some("network"));
+        widgets
+            .stack
+            .add_named(model._keyboard.widget(), Some("keyboard"));
+        widgets
+            .stack
+            .add_named(model._timezone.widget(), Some("timezone"));
+        widgets
+            .stack
+            .add_named(model._disk.widget(), Some("disk"));
+        widgets
+            .stack
+            .add_named(model._partition.widget(), Some("partition"));
+        widgets
+            .stack
+            .add_named(model._user.widget(), Some("user"));
+        widgets
+            .stack
+            .add_named(model.summary.widget(), Some("summary"));
+        widgets
+            .stack
+            .add_named(model.progress.widget(), Some("progress"));
+        widgets
+            .stack
+            .add_named(model.finished.widget(), Some("finished"));
 
-        let lookup: Vec<(&str, gtk::Widget)> = vec![
-            ("welcome", model.welcome.widget().clone().upcast()),
-            ("diagnostics", model._diagnostics.widget().clone().upcast()),
-            ("network", model._network.widget().clone().upcast()),
-            ("keyboard", model._keyboard.widget().clone().upcast()),
-            ("timezone", model._timezone.widget().clone().upcast()),
-            ("disk", model._disk.widget().clone().upcast()),
-            ("partition", model._partition.widget().clone().upcast()),
-            ("user", model._user.widget().clone().upcast()),
-            ("summary", model.summary.widget().clone().upcast()),
-            ("progress", model.progress.widget().clone().upcast()),
-            ("finished", model.finished.widget().clone().upcast()),
-        ];
-        let lookup: std::collections::HashMap<&str, gtk::Widget> = lookup.into_iter().collect();
-        for id in &pages_order {
-            if let Some(w) = lookup.get(id.as_str()) {
-                widgets.carousel.append(w);
-                model.page_widgets.insert(id.clone(), w.clone());
-            }
-        }
-        model.carousel = Some(widgets.carousel.clone());
-        widgets.dots.set_carousel(Some(&widgets.carousel));
+        widgets.stack.set_visible_child_name(model.nav.current());
 
         ComponentParts { model, widgets }
     }
@@ -247,7 +254,6 @@ impl SimpleComponent for AppModel {
                 let was = self.nav.current().to_string();
                 self.nav.next();
                 self.can_proceed = self.gate_for();
-                self.scroll_to_current();
                 if self.nav.current() == "summary" {
                     self.summary.sender().send(SummaryMsg::Show(self.config.clone())).ok();
                 }
@@ -258,7 +264,6 @@ impl SimpleComponent for AppModel {
             AppMsg::Back => {
                 self.nav.prev();
                 self.can_proceed = self.gate_for();
-                self.scroll_to_current();
             }
             AppMsg::StartInstall => {
                 // Load the distro descriptor: prefer the installed path, fall back to the
@@ -315,14 +320,6 @@ impl SimpleComponent for AppModel {
 }
 
 impl AppModel {
-    fn scroll_to_current(&self) {
-        if let (Some(carousel), Some(widget)) =
-            (&self.carousel, self.page_widgets.get(self.nav.current()))
-        {
-            carousel.scroll_to(widget, true);
-        }
-    }
-
     fn apply_page_output(&mut self, out: PageOutput) {
         match out {
             PageOutput::SetLocale(v) => {
@@ -350,7 +347,6 @@ impl AppModel {
             PageOutput::RequestNext => {
                 self.nav.next();
                 self.can_proceed = self.gate_for();
-                self.scroll_to_current();
                 if self.nav.current() == "summary" {
                     self.summary.sender().send(SummaryMsg::Show(self.config.clone())).ok();
                 }
