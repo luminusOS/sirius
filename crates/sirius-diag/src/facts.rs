@@ -8,7 +8,8 @@ use std::process::Command;
 #[derive(Debug, Clone)]
 pub struct SystemFacts {
     pub efi_path: PathBuf,
-    pub meminfo: String,
+    /// Total usable system RAM in bytes (MemTotal on Linux), via sysinfo.
+    pub total_ram_bytes: u64,
     pub largest_disk_bytes: u64,
     pub secure_boot: Option<bool>,
     pub virt: Option<String>,
@@ -20,13 +21,22 @@ impl SystemFacts {
     pub fn gather() -> Self {
         Self {
             efi_path: PathBuf::from("/sys/firmware/efi"),
-            meminfo: std::fs::read_to_string("/proc/meminfo").unwrap_or_default(),
+            total_ram_bytes: total_ram_bytes(),
             largest_disk_bytes: largest_disk_bytes(),
             secure_boot: read_secure_boot(),
             virt: detect_virt(),
             online: false, // refined by Plan 2's network page; bare probe defaults offline-safe
         }
     }
+}
+
+/// Total usable system RAM in bytes via `sysinfo` (reads MemTotal on Linux).
+/// This is usable RAM after kernel/firmware reservations, not the nominal/hypervisor
+/// size — the correct figure to gate an install on.
+fn total_ram_bytes() -> u64 {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_memory();
+    sys.total_memory()
 }
 
 /// Largest whole-disk size in bytes via `lsblk -b -d -n -o SIZE`.

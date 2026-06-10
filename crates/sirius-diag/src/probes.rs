@@ -15,24 +15,19 @@ pub fn probe_uefi(efi_path: &Path) -> Check {
     }
 }
 
-/// Pure RAM check: parses `/proc/meminfo` text and compares MemTotal to a minimum.
-/// `min_gib` is the required RAM in GiB.
-pub fn probe_ram(meminfo: &str, min_gib: u64) -> Check {
-    let total_kib = meminfo
-        .lines()
-        .find_map(|line| {
-            let rest = line.strip_prefix("MemTotal:")?;
-            rest.split_whitespace().next()?.parse::<u64>().ok()
-        })
-        .unwrap_or(0);
-    // Compare in KiB (no truncation) and display with one decimal, so a machine
-    // with ~3.8 GiB usable is not shown as "3 GiB" nor wrongly failed. MemTotal is
-    // usable RAM (after kernel/firmware/device reservations) — the right figure to
-    // gate an install on; the nominal/hypervisor RAM would need DMI (root-only and
-    // unreliable in VMs).
-    let min_kib = min_gib.saturating_mul(1024 * 1024);
-    let total_gib = total_kib as f64 / (1024.0 * 1024.0);
-    if total_kib >= min_kib {
+/// Pure RAM check: compares total usable RAM (bytes) to a minimum.
+/// `total_bytes` is `SystemFacts::total_ram_bytes` (gathered via sysinfo); `min_gib`
+/// is the required RAM in GiB.
+pub fn probe_ram(total_bytes: u64, min_gib: u64) -> Check {
+    // Compare in bytes (no truncation) and display with one decimal, so a machine
+    // with ~3.8 GiB usable is not shown as "3 GiB" nor wrongly failed. This is usable
+    // RAM (after kernel/firmware/device reservations) — the right figure to gate an
+    // install on; the nominal/hypervisor RAM would need DMI (root-only and unreliable
+    // in VMs).
+    const GIB: u64 = 1024 * 1024 * 1024;
+    let min_bytes = min_gib.saturating_mul(GIB);
+    let total_gib = total_bytes as f64 / GIB as f64;
+    if total_bytes >= min_bytes {
         Check::new(
             "ram",
             "Memory",
@@ -138,27 +133,27 @@ mod tests {
         assert_eq!(probe_uefi(&missing).status, Status::Fail);
     }
 
+    const GIB: u64 = 1024 * 1024 * 1024;
+
     #[test]
     fn ram_pass_when_enough() {
-        let meminfo = "MemTotal:       3145728 kB\nMemFree: 100 kB\n";
-        assert_eq!(probe_ram(meminfo, 2).status, Status::Pass);
+        assert_eq!(probe_ram(3 * GIB, 2).status, Status::Pass);
     }
 
     #[test]
     fn ram_fail_when_too_little() {
-        let meminfo = "MemTotal:       1048576 kB\n";
-        assert_eq!(probe_ram(meminfo, 2).status, Status::Fail);
+        assert_eq!(probe_ram(GIB, 2).status, Status::Fail);
     }
 
     #[test]
-    fn ram_fail_when_unparseable() {
-        assert_eq!(probe_ram("garbage", 2).status, Status::Fail);
+    fn ram_fail_when_zero() {
+        assert_eq!(probe_ram(0, 2).status, Status::Fail);
     }
 
     #[test]
     fn ram_shows_one_decimal_not_truncated() {
-        // 3984588 KiB ~= 3.8 GiB usable: must display "3.8", not "3", and pass at min 2.
-        let check = probe_ram("MemTotal:       3984588 kB\n", 2);
+        // 3_984_588 KiB ~= 3.8 GiB usable: must display "3.8", not "3", and pass at min 2.
+        let check = probe_ram(3_984_588 * 1024, 2);
         assert_eq!(check.status, Status::Pass);
         assert!(
             check.detail.contains("3.8 GiB available"),

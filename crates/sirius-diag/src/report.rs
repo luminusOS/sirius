@@ -27,7 +27,7 @@ pub fn run_all_checks_with_config(
 fn run_all_checks_with_min_ram(facts: &SystemFacts, min_ram_gib: u64) -> Vec<Check> {
     vec![
         probes::probe_uefi(&facts.efi_path),
-        probes::probe_ram(&facts.meminfo, min_ram_gib),
+        probes::probe_ram(facts.total_ram_bytes, min_ram_gib),
         probes::probe_disk_space(facts.largest_disk_bytes, MIN_DISK_BYTES),
         probes::probe_secure_boot(facts.secure_boot),
         probes::probe_virt(facts.virt.as_deref()),
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn run_all_checks_uses_configured_ram_threshold() {
         let mut facts = SystemFacts::gather();
-        facts.meminfo = "MemTotal:       3145728 kB\n".into();
+        facts.total_ram_bytes = 3 * 1024 * 1024 * 1024;
 
         let diagnostics = DiagnosticsConfig {
             min_ram_gib: 4,
