@@ -6,11 +6,14 @@ use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 const ZONES: &[&str] = &["America/Sao_Paulo", "America/New_York", "Europe/London", "UTC"];
 
-pub struct TimezonePage;
+pub struct TimezonePage {
+    lang: crate::i18n::Lang,
+}
 
 #[derive(Debug)]
 pub enum TimezoneMsg {
     Chosen(usize),
+    SetLang(crate::i18n::Lang),
 }
 
 #[relm4::component(pub)]
@@ -22,7 +25,8 @@ impl SimpleComponent for TimezonePage {
     view! {
         adw::StatusPage {
             set_icon_name: Some("alarm-symbolic"),
-            set_title: "Time zone",
+            #[watch]
+            set_title: crate::i18n::tr(model.lang, "timezone.title"),
             #[wrap(Some)]
             set_child = &gtk::DropDown {
                 set_halign: gtk::Align::Center,
@@ -40,14 +44,18 @@ impl SimpleComponent for TimezonePage {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         sender.output(PageOutput::SetTimezone(ZONES[0].to_string())).ok();
-        let model = TimezonePage;
+        let model = TimezonePage { lang: crate::i18n::Lang::En };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
-        let TimezoneMsg::Chosen(i) = msg;
-        let zone = ZONES.get(i).copied().unwrap_or("UTC");
-        sender.output(PageOutput::SetTimezone(zone.to_string())).ok();
+        match msg {
+            TimezoneMsg::Chosen(i) => {
+                let zone = ZONES.get(i).copied().unwrap_or("UTC");
+                sender.output(PageOutput::SetTimezone(zone.to_string())).ok();
+            }
+            TimezoneMsg::SetLang(l) => self.lang = l,
+        }
     }
 }

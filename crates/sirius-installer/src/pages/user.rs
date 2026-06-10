@@ -8,6 +8,7 @@ use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 #[derive(Default)]
 pub struct UserPage {
+    lang: crate::i18n::Lang,
     account: UserAccount,
 }
 
@@ -18,6 +19,7 @@ pub enum UserMsg {
     Password(String),
     PasswordConfirm(String),
     Hostname(String),
+    SetLang(crate::i18n::Lang),
 }
 
 #[relm4::component(pub)]
@@ -28,7 +30,8 @@ impl SimpleComponent for UserPage {
 
     view! {
         adw::StatusPage {
-            set_title: "Create your account",
+            #[watch]
+            set_title: crate::i18n::tr(model.lang, "user.title"),
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
@@ -46,31 +49,36 @@ impl SimpleComponent for UserPage {
 
                 adw::PreferencesGroup {
                     adw::EntryRow {
-                        set_title: "Full name",
+                        #[watch]
+                        set_title: crate::i18n::tr(model.lang, "user.full_name"),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::FullName(e.text().to_string()));
                         },
                     },
                     adw::EntryRow {
-                        set_title: "Username",
+                        #[watch]
+                        set_title: crate::i18n::tr(model.lang, "user.username"),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::Username(e.text().to_string()));
                         },
                     },
                     adw::PasswordEntryRow {
-                        set_title: "Password",
+                        #[watch]
+                        set_title: crate::i18n::tr(model.lang, "user.password"),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::Password(e.text().to_string()));
                         },
                     },
                     adw::PasswordEntryRow {
-                        set_title: "Confirm password",
+                        #[watch]
+                        set_title: crate::i18n::tr(model.lang, "user.confirm"),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::PasswordConfirm(e.text().to_string()));
                         },
                     },
                     adw::EntryRow {
-                        set_title: "Hostname",
+                        #[watch]
+                        set_title: crate::i18n::tr(model.lang, "user.hostname"),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::Hostname(e.text().to_string()));
                         },
@@ -97,6 +105,7 @@ impl SimpleComponent for UserPage {
             UserMsg::Password(v) => self.account.password = v,
             UserMsg::PasswordConfirm(v) => self.account.password_confirm = v,
             UserMsg::Hostname(v) => self.account.hostname = v,
+            UserMsg::SetLang(l) => { self.lang = l; return; }
         }
         let valid = self.account.validate().is_ok();
         sender.output(PageOutput::CanProceed(valid)).ok();

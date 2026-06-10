@@ -6,11 +6,14 @@ use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 const LAYOUTS: &[(&str, &str)] = &[("us", "English (US)"), ("br", "Portuguese (Brazil)")];
 
-pub struct KeyboardPage;
+pub struct KeyboardPage {
+    lang: crate::i18n::Lang,
+}
 
 #[derive(Debug)]
 pub enum KeyboardMsg {
     Chosen(usize),
+    SetLang(crate::i18n::Lang),
 }
 
 #[relm4::component(pub)]
@@ -22,7 +25,8 @@ impl SimpleComponent for KeyboardPage {
     view! {
         adw::StatusPage {
             set_icon_name: Some("input-keyboard-symbolic"),
-            set_title: "Keyboard layout",
+            #[watch]
+            set_title: crate::i18n::tr(model.lang, "keyboard.title"),
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
@@ -36,7 +40,10 @@ impl SimpleComponent for KeyboardPage {
                         sender.input(KeyboardMsg::Chosen(dd.selected() as usize));
                     },
                 },
-                gtk::Entry { set_placeholder_text: Some("Type here to test your layout") },
+                gtk::Entry {
+                    #[watch]
+                    set_placeholder_text: Some(crate::i18n::tr(model.lang, "keyboard.test")),
+                },
             },
         }
     }
@@ -47,14 +54,18 @@ impl SimpleComponent for KeyboardPage {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         sender.output(PageOutput::SetKeyboard(LAYOUTS[0].0.to_string())).ok();
-        let model = KeyboardPage;
+        let model = KeyboardPage { lang: crate::i18n::Lang::En };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
-        let KeyboardMsg::Chosen(i) = msg;
-        let code = LAYOUTS.get(i).map(|(c, _)| *c).unwrap_or("us");
-        sender.output(PageOutput::SetKeyboard(code.to_string())).ok();
+        match msg {
+            KeyboardMsg::Chosen(i) => {
+                let code = LAYOUTS.get(i).map(|(c, _)| *c).unwrap_or("us");
+                sender.output(PageOutput::SetKeyboard(code.to_string())).ok();
+            }
+            KeyboardMsg::SetLang(l) => self.lang = l,
+        }
     }
 }

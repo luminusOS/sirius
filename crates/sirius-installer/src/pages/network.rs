@@ -3,10 +3,14 @@
 use super::PageOutput;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
-pub struct NetworkPage;
+pub struct NetworkPage {
+    lang: crate::i18n::Lang,
+}
 
 #[derive(Debug)]
-pub enum NetworkMsg {}
+pub enum NetworkMsg {
+    SetLang(crate::i18n::Lang),
+}
 
 #[relm4::component(pub)]
 impl SimpleComponent for NetworkPage {
@@ -17,11 +21,14 @@ impl SimpleComponent for NetworkPage {
     view! {
         adw::StatusPage {
             set_icon_name: Some("network-wireless-symbolic"),
-            set_title: "Network",
-            set_description: Some("Connect to a network. A connection is optional but recommended."),
+            #[watch]
+            set_title: crate::i18n::tr(model.lang, "network.title"),
+            #[watch]
+            set_description: Some(crate::i18n::tr(model.lang, "network.desc")),
             #[wrap(Some)]
             set_child = &gtk::Label {
-                set_label: "Use the system network indicator to connect.",
+                #[watch]
+                set_label: crate::i18n::tr(model.lang, "network.body"),
             },
         }
     }
@@ -31,10 +38,14 @@ impl SimpleComponent for NetworkPage {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = NetworkPage;
+        let model = NetworkPage { lang: crate::i18n::Lang::En };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, _msg: Self::Input, _sender: ComponentSender<Self>) {}
+    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+        match msg {
+            NetworkMsg::SetLang(l) => self.lang = l,
+        }
+    }
 }

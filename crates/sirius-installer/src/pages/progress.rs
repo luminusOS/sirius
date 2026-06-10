@@ -3,6 +3,7 @@ use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct ProgressPage {
+    lang: crate::i18n::Lang,
     fraction: f64,
     log: gtk::TextBuffer,
 }
@@ -12,6 +13,7 @@ pub enum ProgressMsg {
     /// Plan 3 sends these from the privileged runner's progress stream.
     Update { fraction: f64, line: String },
     Done,
+    SetLang(crate::i18n::Lang),
 }
 
 #[relm4::component(pub)]
@@ -22,7 +24,8 @@ impl SimpleComponent for ProgressPage {
 
     view! {
         adw::StatusPage {
-            set_title: "Installing the system",
+            #[watch]
+            set_title: crate::i18n::tr(model.lang, "progress.title"),
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
@@ -46,7 +49,7 @@ impl SimpleComponent for ProgressPage {
 
     fn init(_i: Self::Init, root: Self::Root, _sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let log = gtk::TextBuffer::new(None);
-        let model = ProgressPage { fraction: 0.0, log };
+        let model = ProgressPage { lang: crate::i18n::Lang::En, fraction: 0.0, log };
         let widgets = view_output!();
         widgets.log_view.set_buffer(Some(&model.log));
         ComponentParts { model, widgets }
@@ -66,6 +69,7 @@ impl SimpleComponent for ProgressPage {
                 self.log.insert(&mut end, "Done.\n");
                 sender.output(PageOutput::RequestNext).ok();
             }
+            ProgressMsg::SetLang(l) => self.lang = l,
         }
     }
 }

@@ -349,9 +349,24 @@ impl AppModel {
     }
 
     fn broadcast_lang(&self, lang: crate::i18n::Lang) {
+        use crate::pages::finished::FinishedMsg;
+        use crate::pages::keyboard::KeyboardMsg;
+        use crate::pages::network::NetworkMsg;
+        use crate::pages::partition::PartitionMsg;
+        use crate::pages::progress::ProgressMsg;
+        use crate::pages::summary::SummaryMsg;
+        use crate::pages::timezone::TimezoneMsg;
+        use crate::pages::user::UserMsg;
         use crate::pages::welcome::WelcomeMsg;
         self.welcome.sender().send(WelcomeMsg::SetLang(lang)).ok();
-        // Tasks B and C add the other pages here.
+        self._network.sender().send(NetworkMsg::SetLang(lang)).ok();
+        self._keyboard.sender().send(KeyboardMsg::SetLang(lang)).ok();
+        self._timezone.sender().send(TimezoneMsg::SetLang(lang)).ok();
+        self._partition.sender().send(PartitionMsg::SetLang(lang)).ok();
+        self._user.sender().send(UserMsg::SetLang(lang)).ok();
+        self.summary.sender().send(SummaryMsg::SetLang(lang)).ok();
+        self.progress.sender().send(ProgressMsg::SetLang(lang)).ok();
+        self.finished.sender().send(FinishedMsg::SetLang(lang)).ok();
     }
 
     /// Decide whether Next is allowed for the CURRENT page, based purely on
