@@ -8,6 +8,14 @@ use crate::config_model::{InstallConfig, InstallType};
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct InstallRequest {
     pub bootc_image: String,
+    #[serde(default)]
+    pub bootc_target_imgref: Option<String>,
+    #[serde(default)]
+    pub bootc_enforce_sigpolicy: bool,
+    #[serde(default)]
+    pub bootc_kargs: Vec<String>,
+    #[serde(default)]
+    pub bootc_args: Vec<String>,
     pub repart_dir: String,
     pub target_disk: String,
     pub encrypt: bool,
@@ -36,6 +44,10 @@ pub fn build_request(
     let encrypt = matches!(install_type, InstallType::Encrypted) || cfg.encrypt;
     Ok(InstallRequest {
         bootc_image: distro.bootc_image.clone(),
+        bootc_target_imgref: distro.bootc_target_imgref.clone(),
+        bootc_enforce_sigpolicy: distro.bootc_enforce_sigpolicy,
+        bootc_kargs: distro.bootc_kargs.clone(),
+        bootc_args: distro.bootc_args.clone(),
         repart_dir: distro.repart_dir.clone(),
         target_disk,
         encrypt,
@@ -99,10 +111,10 @@ impl InstallRequest {
 
         let filesystem_provisioner = Some(FileSystemProvisioner::Bootc(Bootc {
             imgref: self.bootc_image,
-            target_imgref: None,
-            enforce_sigpolicy: false,
-            kargs: vec![],
-            args: vec![],
+            target_imgref: self.bootc_target_imgref,
+            enforce_sigpolicy: self.bootc_enforce_sigpolicy,
+            kargs: self.bootc_kargs,
+            args: self.bootc_args,
         }));
 
         let postinstall = vec![
@@ -128,6 +140,10 @@ mod tests {
     fn descriptor() -> DistroDescriptor {
         DistroDescriptor {
             bootc_image: "ghcr.io/example/os:latest".into(),
+            bootc_target_imgref: None,
+            bootc_enforce_sigpolicy: false,
+            bootc_kargs: vec![],
+            bootc_args: vec![],
             repart_dir: "/usr/share/sirius/repart.d".into(),
         }
     }
@@ -156,6 +172,10 @@ mod tests {
         let req = build_request(&full_config(), &descriptor()).unwrap();
         assert_eq!(req.target_disk, "/dev/sda");
         assert_eq!(req.bootc_image, "ghcr.io/example/os:latest");
+        assert_eq!(req.bootc_target_imgref, None);
+        assert!(!req.bootc_enforce_sigpolicy);
+        assert!(req.bootc_kargs.is_empty());
+        assert!(req.bootc_args.is_empty());
         assert!(req.encrypt);
         assert!(req.tpm);
         assert_eq!(req.timezone, "America/Sao_Paulo");
@@ -188,5 +208,30 @@ mod tests {
         cfg.encrypt = false;
         let req = build_request(&cfg, &descriptor()).unwrap();
         assert_eq!(req.encryption_key, "");
+    }
+
+    #[test]
+    fn carries_bootc_options_from_descriptor() {
+        let mut distro = descriptor();
+        distro.bootc_target_imgref = Some("ghcr.io/luminusos/luminusos-workstation:44".into());
+        distro.bootc_enforce_sigpolicy = true;
+        distro.bootc_kargs = vec!["rhgb".into(), "quiet".into()];
+        distro.bootc_args = vec![
+            "--skip-fetch-check".into(),
+            "--bootloader".into(),
+            "none".into(),
+        ];
+
+        let req = build_request(&full_config(), &distro).unwrap();
+        assert_eq!(
+            req.bootc_target_imgref,
+            Some("ghcr.io/luminusos/luminusos-workstation:44".into())
+        );
+        assert!(req.bootc_enforce_sigpolicy);
+        assert_eq!(req.bootc_kargs, vec!["rhgb", "quiet"]);
+        assert_eq!(
+            req.bootc_args,
+            vec!["--skip-fetch-check", "--bootloader", "none"]
+        );
     }
 }

@@ -54,12 +54,13 @@ impl SimpleComponent for DiagnosticsPage {
             let row = adw::ActionRow::new();
             row.set_title(&c.label);
             row.set_subtitle(&c.detail);
-            let icon = match c.status {
-                Status::Pass => "emblem-ok-symbolic",
-                Status::Warn => "dialog-warning-symbolic",
-                Status::Fail => "dialog-error-symbolic",
+            let (icon, css) = match c.status {
+                Status::Pass => ("object-select-symbolic", "success"),
+                Status::Warn => ("dialog-warning-symbolic", "warning"),
+                Status::Fail => ("dialog-error-symbolic", "error"),
             };
             let img = gtk::Image::from_icon_name(icon);
+            img.add_css_class(css);
             row.add_suffix(&img);
             group.add(&row);
         }

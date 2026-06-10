@@ -17,7 +17,7 @@ impl SimpleComponent for FinishedPage {
 
     view! {
         adw::StatusPage {
-            set_icon_name: Some("emblem-ok-symbolic"),
+            set_icon_name: Some("object-select-symbolic"),
             set_title: "Installation complete",
             set_description: Some("The system is installed. Reboot to start using it."),
             #[wrap(Some)]

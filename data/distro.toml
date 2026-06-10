@@ -2,4 +2,9 @@
 # Installed to /etc/sirius/distro.toml. Set these for your distribution's
 # bootc/OCI image and its systemd-repart partition layout.
 bootc_image = "ghcr.io/example/os:latest"
+# Optional bootc install controls:
+# bootc_target_imgref = "ghcr.io/example/os:latest"
+# bootc_enforce_sigpolicy = false
+# bootc_kargs = ["rhgb", "quiet"]
+# bootc_args = ["--skip-fetch-check"]
 repart_dir = "/usr/share/sirius/repart.d"
