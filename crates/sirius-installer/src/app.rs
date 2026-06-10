@@ -18,7 +18,7 @@ use relm4::adw::prelude::*;
 use relm4::prelude::*;
 use relm4::{adw, gtk, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent};
 use sirius_diag::config::CONFIG_PATH;
-use sirius_diag::{is_blocked, run_all_checks, SiriusConfig, SystemFacts};
+use sirius_diag::{is_blocked, run_all_checks_with_config, SiriusConfig, SystemFacts};
 use std::path::Path;
 
 /// Page ids that actually have mounted widgets in the Stack.
@@ -128,11 +128,11 @@ impl SimpleComponent for AppModel {
             .filter(|p| IMPLEMENTED_PAGES.contains(&p.as_str()))
             .collect();
         let nav = Navigator::new(pages);
-        let diag_require = cfg.diagnostics.require.clone();
+        let diag_config = cfg.diagnostics.clone();
 
         let diagnostics_blocked = {
             let facts = SystemFacts::gather();
-            let checks = run_all_checks(&facts);
+            let checks = run_all_checks_with_config(&facts, &cfg.diagnostics);
             is_blocked(&checks, &cfg.diagnostics.require)
         };
 
@@ -141,7 +141,9 @@ impl SimpleComponent for AppModel {
             .forward(sender.input_sender(), AppMsg::Page);
 
         let diagnostics = DiagnosticsPage::builder()
-            .launch(DiagnosticsInit { require: diag_require })
+            .launch(DiagnosticsInit {
+                config: diag_config,
+            })
             .forward(sender.input_sender(), AppMsg::Page);
 
         let network = NetworkPage::builder()

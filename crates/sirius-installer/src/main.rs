@@ -12,7 +12,7 @@ mod pages;
 
 use clap::{Parser, Subcommand};
 use sirius_diag::config::CONFIG_PATH;
-use sirius_diag::{is_blocked, run_all_checks, SiriusConfig, SystemFacts};
+use sirius_diag::{is_blocked, run_all_checks_with_config, SiriusConfig, SystemFacts};
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -93,7 +93,7 @@ fn run_diag(json: bool) -> ExitCode {
         eprintln!("warning: {w}");
     }
     let facts = SystemFacts::gather();
-    let checks = run_all_checks(&facts);
+    let checks = run_all_checks_with_config(&facts, &cfg.diagnostics);
     let blocked = is_blocked(&checks, &cfg.diagnostics.require);
 
     if json {

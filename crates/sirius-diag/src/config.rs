@@ -3,6 +3,13 @@
 use serde::Deserialize;
 use std::path::Path;
 
+/// Built-in RAM requirement used when `sirius.toml` does not override it.
+pub const DEFAULT_MIN_RAM_GIB: u64 = 2;
+
+fn default_min_ram_gib() -> u64 {
+    DEFAULT_MIN_RAM_GIB
+}
+
 /// The full installer configuration file.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct SiriusConfig {
@@ -28,14 +35,25 @@ pub struct PagesConfig {
 /// hard-gate the install (see [`crate::report::is_blocked`]); a `Fail` whose id
 /// is not in `require` is surfaced but does not block. `warn` is advisory
 /// metadata for the UI (which ids to emphasize as warnings) and is not consulted
-/// by gating. (Plan 2's diagnostics page reads `warn`; revisit if config should
-/// be able to promote a check to a hard requirement.)
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
+/// by gating. `min_ram_gib` controls the RAM threshold used by the `ram` probe.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct DiagnosticsConfig {
     #[serde(default)]
     pub require: Vec<String>,
     #[serde(default)]
     pub warn: Vec<String>,
+    #[serde(default = "default_min_ram_gib")]
+    pub min_ram_gib: u64,
+}
+
+impl Default for DiagnosticsConfig {
+    fn default() -> Self {
+        Self {
+            require: Vec::new(),
+            warn: Vec::new(),
+            min_ram_gib: DEFAULT_MIN_RAM_GIB,
+        }
+    }
 }
 
 impl SiriusConfig {
@@ -132,6 +150,7 @@ impl Default for SiriusConfig {
             diagnostics: DiagnosticsConfig {
                 require: vec!["uefi".into(), "ram".into(), "disk_space".into()],
                 warn: vec!["secure_boot".into(), "network".into(), "virt".into()],
+                min_ram_gib: DEFAULT_MIN_RAM_GIB,
             },
         }
     }
@@ -151,11 +170,13 @@ disabled = ["manual_partition"]
 [diagnostics]
 require = ["uefi", "ram", "disk_space"]
 warn = ["secure_boot", "network", "virt"]
+min_ram_gib = 3
 "#;
         let cfg = SiriusConfig::from_toml(src).unwrap();
         assert_eq!(cfg.pages.order.first().unwrap(), "welcome");
         assert_eq!(cfg.pages.disabled, vec!["manual_partition".to_string()]);
         assert_eq!(cfg.diagnostics.require.len(), 3);
+        assert_eq!(cfg.diagnostics.min_ram_gib, 3);
     }
 
     #[test]
@@ -163,6 +184,7 @@ warn = ["secure_boot", "network", "virt"]
         let cfg = SiriusConfig::from_toml("").unwrap();
         assert!(cfg.pages.order.is_empty());
         assert!(cfg.diagnostics.require.is_empty());
+        assert_eq!(cfg.diagnostics.min_ram_gib, DEFAULT_MIN_RAM_GIB);
     }
 
     #[test]
@@ -213,6 +235,7 @@ warn = ["secure_boot", "network", "virt"]
         let (cfg, warning) = SiriusConfig::load_or_default(Path::new("/no/such/sirius.toml"));
         assert!(warning.is_some());
         assert_eq!(cfg.diagnostics.require, vec!["uefi", "ram", "disk_space"]);
+        assert_eq!(cfg.diagnostics.min_ram_gib, DEFAULT_MIN_RAM_GIB);
     }
 
     #[test]

@@ -20,5 +20,14 @@ to its stdin; the privileged process streams progress JSON back on stdout.
 Each distribution supplies its own `distro.toml` (bootc/OCI image + repart dir) and
 `repart.d/*.conf` partition layout.
 
+Optional diagnostics policy in `/etc/sirius/sirius.toml`:
+
+```toml
+[diagnostics]
+require = ["uefi", "ram", "disk_space"]
+warn = ["secure_boot", "network", "virt"]
+min_ram_gib = 2
+```
+
 ## Runtime requirements on the target/live system
 `systemd-repart`, `bootc`, `cryptsetup` (for encrypted installs), `pkexec`/polkit, and `mount`.

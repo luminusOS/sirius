@@ -6,11 +6,12 @@
 use super::PageOutput;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
-use sirius_diag::{is_blocked, run_all_checks, Check, Status, SystemFacts};
+use sirius_diag::config::DiagnosticsConfig;
+use sirius_diag::{is_blocked, run_all_checks_with_config, Check, Status, SystemFacts};
 
-/// Init data: the list of check ids that hard-gate the install.
+/// Init data: diagnostics thresholds and the check ids that hard-gate the install.
 pub struct DiagnosticsInit {
-    pub require: Vec<String>,
+    pub config: DiagnosticsConfig,
 }
 
 pub struct DiagnosticsPage {
@@ -51,8 +52,8 @@ impl SimpleComponent for DiagnosticsPage {
         let group = adw::PreferencesGroup::new();
 
         let facts = SystemFacts::gather();
-        let checks = run_all_checks(&facts);
-        let blocked = is_blocked(&checks, &init.require);
+        let checks = run_all_checks_with_config(&facts, &init.config);
+        let blocked = is_blocked(&checks, &init.config.require);
 
         for c in &checks {
             let row = adw::ActionRow::new();
