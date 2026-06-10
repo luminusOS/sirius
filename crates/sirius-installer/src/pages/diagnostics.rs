@@ -16,10 +16,13 @@ pub struct DiagnosticsInit {
 pub struct DiagnosticsPage {
     checks: Vec<Check>,
     blocked: bool,
+    lang: crate::i18n::Lang,
 }
 
 #[derive(Debug)]
-pub enum DiagnosticsMsg {}
+pub enum DiagnosticsMsg {
+    SetLang(crate::i18n::Lang),
+}
 
 pub struct DiagnosticsPageWidgets {
     root: adw::StatusPage,
@@ -41,8 +44,9 @@ impl SimpleComponent for DiagnosticsPage {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        root.set_title("System compatibility");
-        root.set_description(Some("Sirius checked your hardware before installing."));
+        let lang = crate::i18n::Lang::En;
+        root.set_title(crate::i18n::tr(lang, "diagnostics.title"));
+        root.set_description(Some(crate::i18n::tr(lang, "diagnostics.desc")));
 
         let group = adw::PreferencesGroup::new();
 
@@ -67,15 +71,20 @@ impl SimpleComponent for DiagnosticsPage {
 
         root.set_child(Some(&group));
 
-        let model = DiagnosticsPage { checks, blocked };
+        let model = DiagnosticsPage { checks, blocked, lang };
         let widgets = DiagnosticsPageWidgets { root };
 
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, _msg: Self::Input, _sender: ComponentSender<Self>) {
-        match _msg {}
+    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+        match msg {
+            DiagnosticsMsg::SetLang(l) => self.lang = l,
+        }
     }
 
-    fn update_view(&self, _widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {}
+    fn update_view(&self, widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {
+        widgets.root.set_title(crate::i18n::tr(self.lang, "diagnostics.title"));
+        widgets.root.set_description(Some(crate::i18n::tr(self.lang, "diagnostics.desc")));
+    }
 }

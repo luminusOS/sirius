@@ -43,6 +43,21 @@ a first-boot agent.
 - [ ] **Real installs are only verified via the ignored VM test** (`tests/vm_install.rs`)
   in a live ISO; there is no unprivileged way to exercise the full path.
 
+## i18n — dynamic strings remain English
+
+The wizard UI (page titles, descriptions, field labels, buttons) is translated live
+(en/pt-BR) via `src/i18n.rs`. The following DYNAMIC strings are still English-only and
+are a TODO:
+
+- [ ] Diagnostic check labels/details (generated in `sirius-diag`).
+- [ ] Disk model/size rows on the disk page.
+- [ ] Install progress/log lines (from the privileged runner).
+- [ ] Account validation error messages (from `UserAccount::validate`).
+
+Localizing these requires translating in `sirius-diag` and/or threading the language
+into the dynamic producers. Add new UI strings to BOTH the `en` and `pt` tables in
+`src/i18n.rs`.
+
 ## Not yet implemented
 
 - [ ] **Manual partitioning page** (`manual_partition`) — a known page id but no widget;

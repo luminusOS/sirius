@@ -11,11 +11,13 @@ use sirius_diag::{list_disks, DiskInfo};
 
 pub struct DiskPage {
     disks: Vec<DiskInfo>,
+    lang: crate::i18n::Lang,
 }
 
 #[derive(Debug)]
 pub enum DiskMsg {
     Selected(usize),
+    SetLang(crate::i18n::Lang),
 }
 
 pub struct DiskPageWidgets {
@@ -38,8 +40,9 @@ impl SimpleComponent for DiskPage {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        root.set_title("Select a disk");
-        root.set_description(Some("The chosen disk will be erased."));
+        let lang = crate::i18n::Lang::En;
+        root.set_title(crate::i18n::tr(lang, "disk.title"));
+        root.set_description(Some(crate::i18n::tr(lang, "disk.desc")));
         root.set_icon_name(Some("drive-harddisk-symbolic"));
 
         let group = adw::PreferencesGroup::new();
@@ -48,7 +51,7 @@ impl SimpleComponent for DiskPage {
 
         if disks.is_empty() {
             let row = adw::ActionRow::new();
-            row.set_title("No disks found");
+            row.set_title(crate::i18n::tr(lang, "disk.none"));
             group.add(&row);
         } else {
             for (i, d) in disks.iter().enumerate() {
@@ -68,7 +71,7 @@ impl SimpleComponent for DiskPage {
 
         root.set_child(Some(&group));
 
-        let model = DiskPage { disks };
+        let model = DiskPage { disks, lang };
         let widgets = DiskPageWidgets { root };
 
         ComponentParts { model, widgets }
@@ -82,8 +85,12 @@ impl SimpleComponent for DiskPage {
                     sender.output(PageOutput::CanProceed(true)).ok();
                 }
             }
+            DiskMsg::SetLang(l) => self.lang = l,
         }
     }
 
-    fn update_view(&self, _widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {}
+    fn update_view(&self, widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {
+        widgets.root.set_title(crate::i18n::tr(self.lang, "disk.title"));
+        widgets.root.set_description(Some(crate::i18n::tr(self.lang, "disk.desc")));
+    }
 }

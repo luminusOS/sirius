@@ -349,6 +349,8 @@ impl AppModel {
     }
 
     fn broadcast_lang(&self, lang: crate::i18n::Lang) {
+        use crate::pages::diagnostics::DiagnosticsMsg;
+        use crate::pages::disk::DiskMsg;
         use crate::pages::finished::FinishedMsg;
         use crate::pages::keyboard::KeyboardMsg;
         use crate::pages::network::NetworkMsg;
@@ -359,9 +361,11 @@ impl AppModel {
         use crate::pages::user::UserMsg;
         use crate::pages::welcome::WelcomeMsg;
         self.welcome.sender().send(WelcomeMsg::SetLang(lang)).ok();
+        self._diagnostics.sender().send(DiagnosticsMsg::SetLang(lang)).ok();
         self._network.sender().send(NetworkMsg::SetLang(lang)).ok();
         self._keyboard.sender().send(KeyboardMsg::SetLang(lang)).ok();
         self._timezone.sender().send(TimezoneMsg::SetLang(lang)).ok();
+        self._disk.sender().send(DiskMsg::SetLang(lang)).ok();
         self._partition.sender().send(PartitionMsg::SetLang(lang)).ok();
         self._user.sender().send(UserMsg::SetLang(lang)).ok();
         self.summary.sender().send(SummaryMsg::SetLang(lang)).ok();
