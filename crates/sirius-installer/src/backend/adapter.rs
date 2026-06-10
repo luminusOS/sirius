@@ -43,12 +43,12 @@ pub fn build_request(
     cfg.user.validate()?;
     let encrypt = matches!(install_type, InstallType::Encrypted) || cfg.encrypt;
     Ok(InstallRequest {
-        bootc_image: distro.bootc_image.clone(),
-        bootc_target_imgref: distro.bootc_target_imgref.clone(),
-        bootc_enforce_sigpolicy: distro.bootc_enforce_sigpolicy,
-        bootc_kargs: distro.bootc_kargs.clone(),
-        bootc_args: distro.bootc_args.clone(),
-        repart_dir: distro.repart_dir.clone(),
+        bootc_image: distro.bootc.image.clone(),
+        bootc_target_imgref: distro.bootc.target_imgref.clone(),
+        bootc_enforce_sigpolicy: distro.bootc.enforce_sigpolicy,
+        bootc_kargs: distro.bootc.kargs.clone(),
+        bootc_args: distro.bootc.args.clone(),
+        repart_dir: distro.disk.repart_dir.clone(),
         target_disk,
         encrypt,
         tpm: cfg.tpm && encrypt,
@@ -138,13 +138,18 @@ mod tests {
     use crate::config_model::{InstallType, UserAccount};
 
     fn descriptor() -> DistroDescriptor {
+        use crate::backend::distro::{BootcConfig, DiskConfig};
         DistroDescriptor {
-            bootc_image: "ghcr.io/example/os:latest".into(),
-            bootc_target_imgref: None,
-            bootc_enforce_sigpolicy: false,
-            bootc_kargs: vec![],
-            bootc_args: vec![],
-            repart_dir: "/usr/share/sirius/repart.d".into(),
+            bootc: BootcConfig {
+                image: "ghcr.io/example/os:latest".into(),
+                target_imgref: None,
+                enforce_sigpolicy: false,
+                kargs: vec![],
+                args: vec![],
+            },
+            disk: DiskConfig {
+                repart_dir: "/usr/share/sirius/repart.d".into(),
+            },
         }
     }
 
@@ -213,10 +218,10 @@ mod tests {
     #[test]
     fn carries_bootc_options_from_descriptor() {
         let mut distro = descriptor();
-        distro.bootc_target_imgref = Some("ghcr.io/luminusos/luminusos-workstation:44".into());
-        distro.bootc_enforce_sigpolicy = true;
-        distro.bootc_kargs = vec!["rhgb".into(), "quiet".into()];
-        distro.bootc_args = vec![
+        distro.bootc.target_imgref = Some("ghcr.io/example/os:stable".into());
+        distro.bootc.enforce_sigpolicy = true;
+        distro.bootc.kargs = vec!["rhgb".into(), "quiet".into()];
+        distro.bootc.args = vec![
             "--skip-fetch-check".into(),
             "--bootloader".into(),
             "none".into(),
@@ -225,7 +230,7 @@ mod tests {
         let req = build_request(&full_config(), &distro).unwrap();
         assert_eq!(
             req.bootc_target_imgref,
-            Some("ghcr.io/luminusos/luminusos-workstation:44".into())
+            Some("ghcr.io/example/os:stable".into())
         );
         assert!(req.bootc_enforce_sigpolicy);
         assert_eq!(req.bootc_kargs, vec!["rhgb", "quiet"]);
