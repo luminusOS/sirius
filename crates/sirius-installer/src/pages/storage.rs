@@ -288,6 +288,10 @@ impl StoragePage {
     }
 
     fn emit(&self, sender: &ComponentSender<Self>) {
+        // Always emits the current draft plan, even right after a failed
+        // mutation (draft.rs leaves the plan unchanged on error). Next stays
+        // gated correctly because `storage_is_valid()` re-validates whatever
+        // plan is emitted here, rather than this function withholding it.
         let Some(disk) = self.disk() else {
             return;
         };
