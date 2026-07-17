@@ -252,7 +252,11 @@ fn disk_map(disk: &DiskSnapshot, plan: Option<&PartitionPlan>, lang: Lang) -> gt
         pending_delete: bool,
     }
 
-    let map = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    // No inter-child spacing: adjacent segments should sit flush against
+    // each other so the bar reads as one continuous strip divided into
+    // colored blocks, not a row of separate rounded pills with the
+    // `.disk-map` background showing through the gaps.
+    let map = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     map.add_css_class("disk-map");
     let mut segments = Vec::new();
     for (index, partition) in disk.partitions.iter().enumerate() {
@@ -493,6 +497,12 @@ fn add_indicator(row: &adw::ActionRow, class: &str) {
     let indicator = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     indicator.add_css_class("partition-indicator");
     indicator.add_css_class(class);
+    // The CSS `min-width`/`min-height` are only a floor; inside an
+    // ActionRow's prefix slot the box otherwise stretches to the row's full
+    // height. Force a fixed size and center it so it renders as a small
+    // rounded square regardless of row height.
+    indicator.set_size_request(20, 20);
+    indicator.set_valign(gtk::Align::Center);
     row.add_prefix(&indicator);
 }
 
