@@ -34,6 +34,7 @@ impl SimpleComponent for FinishedPage {
                     #[watch]
                     set_label: crate::i18n::tr(model.lang, "finished.restart"),
                     add_css_class: "suggested-action",
+                    add_css_class: "install-pill",
                     connect_clicked[sender] => move |_| sender.input(FinishedMsg::Reboot),
                 },
             },
