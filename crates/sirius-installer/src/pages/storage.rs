@@ -81,7 +81,7 @@ impl SimpleComponent for StoragePage {
             Ok(disks) => (disks, None),
             Err(error) => (Vec::new(), Some(error)),
         };
-        let model = StoragePage {
+        let mut model = StoragePage {
             root: root.clone(),
             lang: crate::i18n::Lang::En,
             uefi: std::path::Path::new("/sys/firmware/efi").exists(),
@@ -95,6 +95,16 @@ impl SimpleComponent for StoragePage {
             draft: None,
             draft_error: None,
         };
+        // The ComboRow widget always renders position 0 as visually selected
+        // as soon as it has a model, even though nothing has notified us of a
+        // selection yet. Seed `self.selected` to match so the model and the
+        // widget agree from the very first frame; otherwise the lower page
+        // section stays hidden and, with a single available disk, the user
+        // has no other position to pick and can never unstick it.
+        if let Some(index) = first_available_disk(&model.disks) {
+            model.select_disk(index);
+            model.emit(&sender);
+        }
         let mut widgets = StoragePageWidgets { root };
         // Imperative pages do not receive an automatic first update. Build the
         // disk rows now so the page is usable immediately on arrival.
@@ -105,12 +115,7 @@ impl SimpleComponent for StoragePage {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             StorageMsg::Selected(index) => {
-                self.selected = Some(index);
-                if self.manual {
-                    self.rebuild_draft();
-                } else {
-                    self.reset_plan();
-                }
+                self.select_disk(index);
                 self.emit(&sender);
             }
             StorageMsg::SetManual(manual) => {
@@ -229,9 +234,29 @@ impl SimpleComponent for StoragePage {
     }
 }
 
+/// Index of the first disk that is available for selection (not already in
+/// use), if any. Pure helper shared by `init()` and the `Selected` handler so
+/// there is a single place that decides what "the default disk" means.
+fn first_available_disk(disks: &[DiskSnapshot]) -> Option<usize> {
+    disks.iter().position(|disk| !disk.in_use)
+}
+
 impl StoragePage {
     fn disk(&self) -> Option<&DiskSnapshot> {
         self.selected.and_then(|index| self.disks.get(index))
+    }
+
+    /// Set the selected disk and rebuild whatever derived state (`plan`,
+    /// `draft`) depends on it, matching the mode currently in effect. Used
+    /// both by the `Selected` message handler and by `init()` to seed the
+    /// initial selection.
+    fn select_disk(&mut self, index: usize) {
+        self.selected = Some(index);
+        if self.manual {
+            self.rebuild_draft();
+        } else {
+            self.reset_plan();
+        }
     }
 
     /// Rebuild a fresh draft for the currently selected disk, discarding any
@@ -283,5 +308,51 @@ impl StoragePage {
                 partition_plan: self.manual.then(|| self.plan.clone()).flatten(),
             }))
             .ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn disk(path: &str, in_use: bool) -> DiskSnapshot {
+        DiskSnapshot {
+            path: path.into(),
+            model: "Test disk".into(),
+            size_bytes: 64 * 1024 * 1024 * 1024,
+            table_type: "GPT".into(),
+            read_only: false,
+            in_use,
+            partitions: Vec::new(),
+            free_regions: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn first_available_disk_picks_the_first_non_in_use_disk() {
+        let disks = vec![disk("/dev/sda", true), disk("/dev/sdb", false)];
+        assert_eq!(first_available_disk(&disks), Some(1));
+    }
+
+    #[test]
+    fn first_available_disk_is_none_when_everything_is_in_use() {
+        let disks = vec![disk("/dev/sda", true), disk("/dev/sdb", true)];
+        assert_eq!(first_available_disk(&disks), None);
+    }
+
+    #[test]
+    fn first_available_disk_is_none_for_empty_disk_list() {
+        let disks: Vec<DiskSnapshot> = Vec::new();
+        assert_eq!(first_available_disk(&disks), None);
+    }
+
+    #[test]
+    fn first_available_disk_picks_position_zero_in_the_common_single_disk_case() {
+        // This is the case the Critical bug fix targets directly: exactly
+        // one available disk, which is also the ComboRow's default visual
+        // position. `self.selected` must end up `Some(0)` on init so the
+        // model and the freshly built widget agree from the first frame.
+        let disks = vec![disk("/dev/sda", false)];
+        assert_eq!(first_available_disk(&disks), Some(0));
     }
 }
