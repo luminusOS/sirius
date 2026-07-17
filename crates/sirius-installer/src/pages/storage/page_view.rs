@@ -19,6 +19,7 @@ pub(super) struct PageView<'a> {
     pub uefi: bool,
     pub error: Option<&'a str>,
     pub lang: Lang,
+    pub show_in_use_disks: bool,
 }
 
 pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) -> adw::Clamp {
@@ -49,6 +50,7 @@ pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) 
         state.disks,
         state.selected,
         state.error,
+        state.show_in_use_disks,
         state.lang,
         sender,
     ));
@@ -88,6 +90,7 @@ pub(super) fn disk_selector(
     disks: &[DiskSnapshot],
     selected: Option<usize>,
     error: Option<&str>,
+    show_in_use: bool,
     lang: Lang,
     sender: &ComponentSender<StoragePage>,
 ) -> adw::PreferencesGroup {
@@ -102,13 +105,14 @@ pub(super) fn disk_selector(
         return group;
     }
 
-    // Only disks that are not already in use can be selected. Keep a map from
-    // the ComboRow's position back to the index in `disks` since these may
-    // not line up once in-use disks are skipped.
+    // Only disks that are not already in use can be selected, unless the
+    // SIRIUS_DEV_SHOW_ALL_DISKS dev override is set (see storage.rs). Keep a
+    // map from the ComboRow's position back to the index in `disks` since
+    // these may not line up once in-use disks are skipped.
     let available: Vec<usize> = disks
         .iter()
         .enumerate()
-        .filter(|(_, disk)| !disk.in_use)
+        .filter(|(_, disk)| show_in_use || !disk.in_use)
         .map(|(index, _)| index)
         .collect();
 

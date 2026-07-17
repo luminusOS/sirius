@@ -22,6 +22,7 @@ pub(super) fn build(
     disks: &[DiskSnapshot],
     selected: Option<usize>,
     disks_error: Option<&str>,
+    show_in_use_disks: bool,
     disk: &DiskSnapshot,
     draft: Option<&PartitionDraft>,
     draft_error: Option<&str>,
@@ -42,7 +43,14 @@ pub(super) fn build(
 
     let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
     content.add_css_class("storage-content");
-    content.append(&disk_selector(disks, selected, disks_error, lang, sender));
+    content.append(&disk_selector(
+        disks,
+        selected,
+        disks_error,
+        show_in_use_disks,
+        lang,
+        sender,
+    ));
     content.append(&disk_map(disk, plan, lang));
     content.append(&volumes_header(disk, draft, lang, sender));
     content.append(&partition_list(disk, plan, sender, lang));

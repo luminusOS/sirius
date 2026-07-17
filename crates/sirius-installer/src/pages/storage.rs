@@ -34,6 +34,13 @@ pub struct StoragePage {
     /// folded into `plan` and emitted immediately.
     draft: Option<PartitionDraft>,
     draft_error: Option<String>,
+    /// Dev aid (`SIRIUS_DEV_SHOW_ALL_DISKS`): lets in-use disks be picked in
+    /// the selector, for testing the UI on a host where the only disk is the
+    /// one you're booted from. This page never writes to disk regardless —
+    /// see the module doc comment — so it's safe to browse and edit plans
+    /// against an in-use disk; only an actual install (a separate, later
+    /// confirmation) would touch it.
+    show_in_use_disks: bool,
 }
 
 #[derive(Debug)]
@@ -93,6 +100,12 @@ impl SimpleComponent for StoragePage {
             Ok(disks) => (disks, None),
             Err(error) => (Vec::new(), Some(error)),
         };
+        // Dev aid: SIRIUS_DEV_SHOW_ALL_DISKS lets in-use disks be selected in
+        // the UI too, for testing the storage page on a host where the real
+        // disk is always in use (mounted root/swap/etc). No disk write ever
+        // happens from this page, so this is safe outside of an actual
+        // install run — see the module doc comment.
+        let show_in_use_disks = std::env::var("SIRIUS_DEV_SHOW_ALL_DISKS").is_ok();
         let mut model = StoragePage {
             root: root.clone(),
             lang: crate::i18n::Lang::En,
@@ -107,6 +120,7 @@ impl SimpleComponent for StoragePage {
             editor: None,
             draft: None,
             draft_error: None,
+            show_in_use_disks,
         };
         // The ComboRow widget always renders position 0 as visually selected
         // as soon as it has a model, even though nothing has notified us of a
@@ -114,7 +128,7 @@ impl SimpleComponent for StoragePage {
         // widget agree from the very first frame; otherwise the lower page
         // section stays hidden and, with a single available disk, the user
         // has no other position to pick and can never unstick it.
-        if let Some(index) = first_available_disk(&model.disks) {
+        if let Some(index) = first_available_disk(&model.disks, model.show_in_use_disks) {
             model.select_disk(index);
             model.emit(&sender);
         }
@@ -289,6 +303,7 @@ impl SimpleComponent for StoragePage {
                 uefi: self.uefi,
                 error: self.error.as_deref(),
                 lang: self.lang,
+                show_in_use_disks: self.show_in_use_disks,
             },
             &sender,
         );
@@ -298,10 +313,11 @@ impl SimpleComponent for StoragePage {
 }
 
 /// Index of the first disk that is available for selection (not already in
-/// use), if any. Pure helper shared by `init()` and the `Selected` handler so
-/// there is a single place that decides what "the default disk" means.
-fn first_available_disk(disks: &[DiskSnapshot]) -> Option<usize> {
-    disks.iter().position(|disk| !disk.in_use)
+/// use, unless `show_in_use` overrides that), if any. Pure helper shared by
+/// `init()` and the `Selected` handler so there is a single place that
+/// decides what "the default disk" means.
+fn first_available_disk(disks: &[DiskSnapshot], show_in_use: bool) -> Option<usize> {
+    disks.iter().position(|disk| show_in_use || !disk.in_use)
 }
 
 impl StoragePage {
@@ -369,6 +385,7 @@ impl StoragePage {
             &self.disks,
             self.selected,
             self.error.as_deref(),
+            self.show_in_use_disks,
             disk,
             self.draft.as_ref(),
             self.draft_error.as_deref(),
@@ -436,19 +453,19 @@ mod tests {
     #[test]
     fn first_available_disk_picks_the_first_non_in_use_disk() {
         let disks = vec![disk("/dev/sda", true), disk("/dev/sdb", false)];
-        assert_eq!(first_available_disk(&disks), Some(1));
+        assert_eq!(first_available_disk(&disks, false), Some(1));
     }
 
     #[test]
     fn first_available_disk_is_none_when_everything_is_in_use() {
         let disks = vec![disk("/dev/sda", true), disk("/dev/sdb", true)];
-        assert_eq!(first_available_disk(&disks), None);
+        assert_eq!(first_available_disk(&disks, false), None);
     }
 
     #[test]
     fn first_available_disk_is_none_for_empty_disk_list() {
         let disks: Vec<DiskSnapshot> = Vec::new();
-        assert_eq!(first_available_disk(&disks), None);
+        assert_eq!(first_available_disk(&disks, false), None);
     }
 
     #[test]
@@ -458,6 +475,15 @@ mod tests {
         // position. `self.selected` must end up `Some(0)` on init so the
         // model and the freshly built widget agree from the first frame.
         let disks = vec![disk("/dev/sda", false)];
-        assert_eq!(first_available_disk(&disks), Some(0));
+        assert_eq!(first_available_disk(&disks, false), Some(0));
+    }
+
+    #[test]
+    fn first_available_disk_with_show_in_use_picks_position_zero_even_when_in_use() {
+        // SIRIUS_DEV_SHOW_ALL_DISKS: a dev host's only disk is almost always
+        // in use (it's booted from it) — the override must still resolve to
+        // a selectable default instead of leaving `selected` stuck at `None`.
+        let disks = vec![disk("/dev/sda", true)];
+        assert_eq!(first_available_disk(&disks, true), Some(0));
     }
 }
