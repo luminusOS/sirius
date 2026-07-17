@@ -3,6 +3,7 @@
 //! Manual actions only mutate `PartitionPlan`; no disk write happens here.
 
 mod draft;
+mod editor_view;
 mod page_view;
 mod partition_dialog;
 
@@ -12,7 +13,7 @@ use crate::config_model::{InstallType, PartitionPlan};
 use draft::{PartitionDraft, PartitionSpec};
 use partition_dialog::{DialogTarget, EditSource};
 use relm4::adw::prelude::*;
-use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct StoragePage {
     root: gtk::ScrolledWindow,
@@ -25,8 +26,12 @@ pub struct StoragePage {
     tpm: bool,
     plan: Option<PartitionPlan>,
     error: Option<String>,
-    /// Draft for the inline manual-partitioning editor. Every successful
-    /// mutation is folded into `plan` and emitted immediately.
+    /// Modal dialog showing the disk-usage map and volumes/partitions list.
+    /// Only ever `Some` while manual mode is active and the user has opened
+    /// it; its content is rebuilt from `draft`/`draft_error` on every mutation.
+    editor: Option<adw::Dialog>,
+    /// Draft for the manual-partitioning editor. Every successful mutation is
+    /// folded into `plan` and emitted immediately.
     draft: Option<PartitionDraft>,
     draft_error: Option<String>,
 }
@@ -38,6 +43,8 @@ pub enum StorageMsg {
     ResetDraft,
     ToggleEncrypt(bool),
     ToggleTpm(bool),
+    OpenEditor,
+    CloseEditor,
     OpenCreate(usize),
     Create {
         region: usize,
@@ -97,6 +104,7 @@ impl SimpleComponent for StoragePage {
             tpm: false,
             plan: None,
             error,
+            editor: None,
             draft: None,
             draft_error: None,
         };
@@ -121,6 +129,7 @@ impl SimpleComponent for StoragePage {
         match msg {
             StorageMsg::Selected(index) => {
                 self.select_disk(index);
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::SetManual(manual) => {
@@ -131,11 +140,13 @@ impl SimpleComponent for StoragePage {
                     self.rebuild_draft();
                 } else {
                     self.reset_plan();
+                    self.close_editor();
                 }
                 self.emit(&sender);
             }
             StorageMsg::ResetDraft => {
                 self.rebuild_draft();
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::ToggleEncrypt(enabled) => {
@@ -149,6 +160,20 @@ impl SimpleComponent for StoragePage {
                 self.tpm = enabled && self.encrypt;
                 self.emit(&sender);
             }
+            StorageMsg::OpenEditor => {
+                if !self.manual || self.disk().is_none() || self.editor.is_some() {
+                    return;
+                }
+                let dialog = adw::Dialog::builder()
+                    .title(crate::i18n::tr(self.lang, "storage.editor"))
+                    .content_width(760)
+                    .content_height(640)
+                    .build();
+                self.editor = Some(dialog.clone());
+                self.refresh_editor(&sender);
+                dialog.present(Some(&self.root));
+            }
+            StorageMsg::CloseEditor => self.close_editor(),
             StorageMsg::OpenCreate(region) => {
                 if let Some(free) = self
                     .draft
@@ -156,7 +181,7 @@ impl SimpleComponent for StoragePage {
                     .and_then(|draft| draft.remaining_region(region))
                 {
                     partition_dialog::show(
-                        &self.root.clone().upcast(),
+                        &self.dialog_parent(),
                         &sender,
                         DialogTarget::Create(region, free),
                         None,
@@ -172,12 +197,13 @@ impl SimpleComponent for StoragePage {
                     .and_then(|draft| draft.create(region, spec))
                     .err();
                 self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::OpenEdit(partition) => {
                 if let Some(existing) = self.disk().and_then(|d| d.partitions.get(partition)) {
                     partition_dialog::show(
-                        &self.root.clone().upcast(),
+                        &self.dialog_parent(),
                         &sender,
                         DialogTarget::Edit(partition),
                         Some(EditSource::Existing(existing)),
@@ -193,6 +219,7 @@ impl SimpleComponent for StoragePage {
                     .and_then(|draft| draft.edit_existing(partition, spec))
                     .err();
                 self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::Delete(partition) => {
@@ -203,6 +230,7 @@ impl SimpleComponent for StoragePage {
                     .and_then(|draft| draft.delete_existing(partition))
                     .err();
                 self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::DeletePlanned(id) => {
@@ -213,12 +241,13 @@ impl SimpleComponent for StoragePage {
                     .and_then(|draft| draft.delete_planned(&id))
                     .err();
                 self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::OpenEditPlanned(id) => {
                 if let Some(details) = self.draft.as_ref().and_then(|d| d.planned_details(&id)) {
                     partition_dialog::show(
-                        &self.root.clone().upcast(),
+                        &self.dialog_parent(),
                         &sender,
                         DialogTarget::EditPlanned(id),
                         Some(EditSource::Planned {
@@ -240,6 +269,7 @@ impl SimpleComponent for StoragePage {
                     .and_then(|draft| draft.edit_planned(&id, spec))
                     .err();
                 self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.refresh_editor(&sender);
                 self.emit(&sender);
             }
             StorageMsg::SetLang(lang) => self.lang = lang,
@@ -263,6 +293,7 @@ impl SimpleComponent for StoragePage {
             &sender,
         );
         widgets.root.set_child(Some(&clamp));
+        self.refresh_editor(&sender);
     }
 }
 
@@ -317,6 +348,41 @@ impl StoragePage {
         self.draft = None;
         self.draft_error = None;
         self.plan = self.disk().map(PartitionDraft::empty_plan);
+    }
+
+    /// Close the editor dialog if one is open. Idempotent.
+    fn close_editor(&mut self) {
+        if let Some(dialog) = self.editor.take() {
+            dialog.close();
+        }
+    }
+
+    /// Rebuild the editor dialog's content from the current draft, if the
+    /// dialog is open. Called after every draft mutation (in addition to
+    /// `emit`) and from `update_view` so a full re-render (e.g. `SetLang`)
+    /// also keeps the modal in sync. No-op when the editor is closed.
+    fn refresh_editor(&self, sender: &ComponentSender<Self>) {
+        let (Some(dialog), Some(disk)) = (&self.editor, self.disk()) else {
+            return;
+        };
+        dialog.set_child(Some(&editor_view::build(
+            disk,
+            self.draft.as_ref(),
+            self.draft_error.as_deref(),
+            self.uefi,
+            sender,
+            self.lang,
+        )));
+    }
+
+    /// Parent widget for the small create/edit partition form: the editor
+    /// dialog when it is open (so the form stacks on top of it), or the page
+    /// root otherwise.
+    fn dialog_parent(&self) -> gtk::Widget {
+        self.editor
+            .as_ref()
+            .map(|dialog| dialog.clone().upcast())
+            .unwrap_or_else(|| self.root.clone().upcast())
     }
 
     fn emit(&self, sender: &ComponentSender<Self>) {
