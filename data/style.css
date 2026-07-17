@@ -41,9 +41,7 @@
 
 .disk-map {
   min-height: 46px;
-  padding: 3px;
   border-radius: 12px;
-  background: alpha(@window_fg_color, .08);
 }
 
 .partition-segment {
@@ -55,13 +53,13 @@
 }
 
 .partition-segment:first-child {
-  border-top-left-radius: 9px;
-  border-bottom-left-radius: 9px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
 }
 
 .partition-segment:last-child {
-  border-top-right-radius: 9px;
-  border-bottom-right-radius: 9px;
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 .partition-efi { background: #3584e4; }

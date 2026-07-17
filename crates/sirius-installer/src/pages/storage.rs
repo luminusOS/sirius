@@ -382,10 +382,6 @@ impl StoragePage {
             return;
         };
         dialog.set_child(Some(&editor_view::build(
-            &self.disks,
-            self.selected,
-            self.error.as_deref(),
-            self.show_in_use_disks,
             disk,
             self.draft.as_ref(),
             self.draft_error.as_deref(),

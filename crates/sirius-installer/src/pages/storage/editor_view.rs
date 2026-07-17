@@ -3,7 +3,6 @@
 //! "Open editor" while manual partitioning is active.
 
 use super::draft::{remaining_region, PartitionDraft};
-use super::page_view::disk_selector;
 use super::{StorageMsg, StoragePage};
 use crate::backend::storage::{format_size, DiskSnapshot, PartitionSnapshot};
 use crate::config_model::{PartitionOperation, PartitionPlan, PartitionRef};
@@ -14,15 +13,10 @@ use relm4::{adw, gtk, ComponentSender};
 /// Build the editor dialog's content. `draft` drives both the segment map
 /// and the volumes list, and whether the "Discard changes" button appears;
 /// `draft_error` takes precedence over the draft's own validation error, same
-/// as the summary shown on the main page. `disks`/`selected`/`disks_error`
-/// let the same disk switcher used on the main page also live inside the
-/// modal, so picking a different disk doesn't require closing it first.
-#[allow(clippy::too_many_arguments)]
+/// as the summary shown on the main page. The disk itself is fixed by the
+/// main page's picker — Sirius only ever installs to one disk — so this only
+/// shows which disk it is (see `disk_heading`), it doesn't let it be changed.
 pub(super) fn build(
-    disks: &[DiskSnapshot],
-    selected: Option<usize>,
-    disks_error: Option<&str>,
-    show_in_use_disks: bool,
     disk: &DiskSnapshot,
     draft: Option<&PartitionDraft>,
     draft_error: Option<&str>,
@@ -43,14 +37,7 @@ pub(super) fn build(
 
     let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
     content.add_css_class("storage-content");
-    content.append(&disk_selector(
-        disks,
-        selected,
-        disks_error,
-        show_in_use_disks,
-        lang,
-        sender,
-    ));
+    content.append(&disk_heading(disk, lang));
     content.append(&disk_map(disk, plan, lang));
     content.append(&volumes_header(disk, draft, lang, sender));
     content.append(&partition_list(disk, plan, sender, lang));
@@ -78,6 +65,34 @@ pub(super) fn build(
         .build();
     toolbar.set_content(Some(&scroller));
     toolbar
+}
+
+/// Highlighted disk name at the top of the editor — a plain label, not a
+/// selector. The disk is already fixed by the main page's picker and Sirius
+/// only ever installs to one disk, so there is nothing to choose here.
+fn disk_heading(disk: &DiskSnapshot, lang: Lang) -> gtk::Box {
+    let container = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    container.set_margin_start(12);
+    container.set_margin_end(12);
+
+    let caption = gtk::Label::new(Some(tr(lang, "storage.disk")));
+    caption.add_css_class("dim-label");
+    caption.add_css_class("caption");
+    caption.set_halign(gtk::Align::Start);
+    container.append(&caption);
+
+    let name = gtk::Label::new(Some(&format!(
+        "{} ({} — {})",
+        disk.path,
+        disk.model,
+        format_size(disk.size_bytes)
+    )));
+    name.add_css_class("title-2");
+    name.set_halign(gtk::Align::Start);
+    name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    container.append(&name);
+
+    container
 }
 
 fn volumes_header(

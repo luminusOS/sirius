@@ -82,11 +82,12 @@ pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) 
         .build()
 }
 
-/// The disk-picker `PreferencesGroup`. Shared between the main page and the
-/// editor modal (see `editor_view::build`) so a disk can be switched from
-/// either place — takes plain values rather than `&PageView` since the
-/// editor modal doesn't have (or need) a full `PageView`.
-pub(super) fn disk_selector(
+/// The disk-picker `PreferencesGroup`: one always-visible row per available
+/// disk with a radio button, rather than a dropdown — Sirius only ever
+/// installs to a single disk (there is no multi-disk/RAID install), so this
+/// is a single-select list, just laid out so every option is visible at
+/// once instead of hidden behind a popover.
+fn disk_selector(
     disks: &[DiskSnapshot],
     selected: Option<usize>,
     error: Option<&str>,
@@ -106,9 +107,7 @@ pub(super) fn disk_selector(
     }
 
     // Only disks that are not already in use can be selected, unless the
-    // SIRIUS_DEV_SHOW_ALL_DISKS dev override is set (see storage.rs). Keep a
-    // map from the ComboRow's position back to the index in `disks` since
-    // these may not line up once in-use disks are skipped.
+    // SIRIUS_DEV_SHOW_ALL_DISKS dev override is set (see storage.rs).
     let available: Vec<usize> = disks
         .iter()
         .enumerate()
@@ -124,43 +123,35 @@ pub(super) fn disk_selector(
         return group;
     }
 
-    let labels: Vec<String> = available
-        .iter()
-        .map(|&index| {
-            let disk = &disks[index];
-            format!(
-                "{} ({} — {})",
-                disk.path,
-                disk.model,
-                format_size(disk.size_bytes)
-            )
-        })
-        .collect();
-    let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
-    let model = gtk::StringList::new(&label_refs);
+    let mut leader: Option<gtk::CheckButton> = None;
+    for &index in &available {
+        let disk = &disks[index];
+        let row = adw::ActionRow::new();
+        row.set_title(&disk.model);
+        row.set_subtitle(&format!(
+            "{} • {} • {}",
+            disk.path,
+            format_size(disk.size_bytes),
+            disk.table_type
+        ));
+        row.add_prefix(&gtk::Image::from_icon_name("drive-harddisk-symbolic"));
 
-    let combo = adw::ComboRow::new();
-    combo.set_title(tr(lang, "storage.disk"));
-    combo.add_prefix(&gtk::Image::from_icon_name("drive-harddisk-symbolic"));
-    combo.set_model(Some(&model));
-
-    if let Some(selected) = selected {
-        if let Some(position) = available.iter().position(|&index| index == selected) {
-            combo.set_selected(position as u32);
-            combo.set_subtitle(&disks[selected].table_type.to_ascii_uppercase());
+        let radio = gtk::CheckButton::new();
+        radio.set_group(leader.as_ref());
+        radio.set_active(selected == Some(index));
+        let page_sender = sender.clone();
+        radio.connect_toggled(move |button| {
+            if button.is_active() {
+                page_sender.input(StorageMsg::Selected(index));
+            }
+        });
+        row.add_suffix(&radio);
+        row.set_activatable_widget(Some(&radio));
+        if leader.is_none() {
+            leader = Some(radio);
         }
+        group.add(&row);
     }
-
-    let page_sender = sender.clone();
-    let index_map = available.clone();
-    combo.connect_selected_notify(move |row| {
-        let position = row.selected() as usize;
-        if let Some(&original_index) = index_map.get(position) {
-            page_sender.input(StorageMsg::Selected(original_index));
-        }
-    });
-
-    group.add(&combo);
     group
 }
 
