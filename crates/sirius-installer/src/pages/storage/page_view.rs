@@ -124,6 +124,7 @@ fn disk_selector(
     }
 
     let mut leader: Option<gtk::CheckButton> = None;
+    let mut solo: Option<(adw::ActionRow, gtk::CheckButton)> = None;
     for &index in &available {
         let disk = &disks[index];
         let row = adw::ActionRow::new();
@@ -148,10 +149,25 @@ fn disk_selector(
         row.add_suffix(&radio);
         row.set_activatable_widget(Some(&radio));
         if leader.is_none() {
-            leader = Some(radio);
+            leader = Some(radio.clone());
         }
+        solo = Some((row.clone(), radio));
         group.add(&row);
     }
+
+    // GTK only draws the round radio indicator once a check button is
+    // actually grouped with another one; a lone entry renders as a square
+    // checkbox otherwise. A single-disk system is the common case, so pair
+    // the sole radio with an invisible anchor purely to get the radio look.
+    if available.len() == 1 {
+        if let Some((row, radio)) = solo {
+            let anchor = gtk::CheckButton::new();
+            anchor.set_visible(false);
+            anchor.set_group(Some(&radio));
+            row.add_suffix(&anchor);
+        }
+    }
+
     group
 }
 
