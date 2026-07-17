@@ -91,8 +91,28 @@ fn open_link_capped(url: &str, window: Option<&gtk::Window>) {
             // `--scope` blocks until the wrapped process exits; reap it off
             // the main loop thread so we don't stall the UI or leave a
             // zombie behind.
-            thread::spawn(move || {
-                let _ = child.wait();
+            //
+            // A non-zero exit here can mean the browser ran and exited (not
+            // necessarily an error), but it can also mean `systemd-run`
+            // itself failed to establish the scope (e.g. no active `--user`
+            // D-Bus/systemd session during early live-ISO boot, an
+            // unsupported cgroup property, or a permission error) — in which
+            // case the browser never launched at all. We can't fully
+            // distinguish the two from the exit code alone, and this runs on
+            // a background thread after the click handler has already
+            // returned, so there's no straightforward way to marshal a
+            // `gtk::UriLauncher` fallback back onto the GTK main thread here.
+            // Log clearly so a silent no-op click is at least diagnosable.
+            thread::spawn(move || match child.wait() {
+                Ok(status) if !status.success() => {
+                    tracing::warn!(
+                        "memory-capped link launch may have failed: systemd-run --scope exited with {status}"
+                    );
+                }
+                Ok(_) => {}
+                Err(err) => {
+                    tracing::warn!("failed to wait on memory-capped link launch: {err}");
+                }
             });
         }
         Err(err) => {
