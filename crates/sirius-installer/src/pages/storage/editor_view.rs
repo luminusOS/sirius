@@ -3,6 +3,7 @@
 //! "Open editor" while manual partitioning is active.
 
 use super::draft::{remaining_region, PartitionDraft};
+use super::page_view::disk_selector;
 use super::{StorageMsg, StoragePage};
 use crate::backend::storage::{format_size, DiskSnapshot, PartitionSnapshot};
 use crate::config_model::{PartitionOperation, PartitionPlan, PartitionRef};
@@ -13,8 +14,14 @@ use relm4::{adw, gtk, ComponentSender};
 /// Build the editor dialog's content. `draft` drives both the segment map
 /// and the volumes list, and whether the "Discard changes" button appears;
 /// `draft_error` takes precedence over the draft's own validation error, same
-/// as the summary shown on the main page.
+/// as the summary shown on the main page. `disks`/`selected`/`disks_error`
+/// let the same disk switcher used on the main page also live inside the
+/// modal, so picking a different disk doesn't require closing it first.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn build(
+    disks: &[DiskSnapshot],
+    selected: Option<usize>,
+    disks_error: Option<&str>,
     disk: &DiskSnapshot,
     draft: Option<&PartitionDraft>,
     draft_error: Option<&str>,
@@ -35,6 +42,7 @@ pub(super) fn build(
 
     let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
     content.add_css_class("storage-content");
+    content.append(&disk_selector(disks, selected, disks_error, lang, sender));
     content.append(&disk_map(disk, plan, lang));
     content.append(&volumes_header(disk, draft, lang, sender));
     content.append(&partition_list(disk, plan, sender, lang));

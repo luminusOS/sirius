@@ -45,7 +45,13 @@ pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) 
     description.set_wrap(true);
     content.append(&description);
 
-    content.append(&disk_selector(&state, sender));
+    content.append(&disk_selector(
+        state.disks,
+        state.selected,
+        state.error,
+        state.lang,
+        sender,
+    ));
 
     if let Some(disk) = state.selected.and_then(|index| state.disks.get(index)) {
         content.append(&mode_row(&state, sender));
@@ -74,26 +80,32 @@ pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) 
         .build()
 }
 
-fn disk_selector(
-    state: &PageView<'_>,
+/// The disk-picker `PreferencesGroup`. Shared between the main page and the
+/// editor modal (see `editor_view::build`) so a disk can be switched from
+/// either place — takes plain values rather than `&PageView` since the
+/// editor modal doesn't have (or need) a full `PageView`.
+pub(super) fn disk_selector(
+    disks: &[DiskSnapshot],
+    selected: Option<usize>,
+    error: Option<&str>,
+    lang: Lang,
     sender: &ComponentSender<StoragePage>,
 ) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
-    group.set_title(tr(state.lang, "storage.disk"));
+    group.set_title(tr(lang, "storage.disk"));
 
-    if let Some(error) = state.error {
+    if let Some(error) = error {
         let row = adw::ActionRow::new();
-        row.set_title(tr(state.lang, "storage.unavailable"));
+        row.set_title(tr(lang, "storage.unavailable"));
         row.set_subtitle(error);
         group.add(&row);
         return group;
     }
 
     // Only disks that are not already in use can be selected. Keep a map from
-    // the ComboRow's position back to the index in `state.disks` since these
-    // may not line up once in-use disks are skipped.
-    let available: Vec<usize> = state
-        .disks
+    // the ComboRow's position back to the index in `disks` since these may
+    // not line up once in-use disks are skipped.
+    let available: Vec<usize> = disks
         .iter()
         .enumerate()
         .filter(|(_, disk)| !disk.in_use)
@@ -102,8 +114,8 @@ fn disk_selector(
 
     if available.is_empty() {
         let row = adw::ActionRow::new();
-        row.set_title(tr(state.lang, "storage.none"));
-        row.set_subtitle(tr(state.lang, "storage.none.desc"));
+        row.set_title(tr(lang, "storage.none"));
+        row.set_subtitle(tr(lang, "storage.none.desc"));
         group.add(&row);
         return group;
     }
@@ -111,7 +123,7 @@ fn disk_selector(
     let labels: Vec<String> = available
         .iter()
         .map(|&index| {
-            let disk = &state.disks[index];
+            let disk = &disks[index];
             format!(
                 "{} ({} — {})",
                 disk.path,
@@ -124,14 +136,14 @@ fn disk_selector(
     let model = gtk::StringList::new(&label_refs);
 
     let combo = adw::ComboRow::new();
-    combo.set_title(tr(state.lang, "storage.disk"));
+    combo.set_title(tr(lang, "storage.disk"));
     combo.add_prefix(&gtk::Image::from_icon_name("drive-harddisk-symbolic"));
     combo.set_model(Some(&model));
 
-    if let Some(selected) = state.selected {
+    if let Some(selected) = selected {
         if let Some(position) = available.iter().position(|&index| index == selected) {
             combo.set_selected(position as u32);
-            combo.set_subtitle(&state.disks[selected].table_type.to_ascii_uppercase());
+            combo.set_subtitle(&disks[selected].table_type.to_ascii_uppercase());
         }
     }
 
