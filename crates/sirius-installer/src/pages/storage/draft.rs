@@ -36,6 +36,17 @@ impl PartitionSpec {
     }
 }
 
+/// Prefill data for the edit-planned dialog: the planned partition's current
+/// values plus how far it could still grow. See `PartitionDraft::planned_details`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlannedDetails {
+    pub filesystem: String,
+    pub size_bytes: u64,
+    pub max_size_bytes: u64,
+    pub mount_point: String,
+    pub label: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct PartitionDraft {
     disk: DiskSnapshot,
@@ -147,6 +158,143 @@ impl PartitionDraft {
             .operations
             .push(PartitionOperation::Delete { target });
         Ok(())
+    }
+
+    pub fn edit_planned(&mut self, id: &str, spec: PartitionSpec) -> Result<(), String> {
+        spec.validate(true)?;
+        let (offset_bytes, current_size) = self
+            .plan
+            .operations
+            .iter()
+            .find_map(|operation| match operation {
+                PartitionOperation::Create {
+                    id: current,
+                    offset_bytes,
+                    size_bytes,
+                    ..
+                } if current == id => Some((*offset_bytes, *size_bytes)),
+                _ => None,
+            })
+            .ok_or_else(|| "planned partition no longer exists".to_string())?;
+
+        let requested = (spec.size_gib * GIB) as u64;
+        let max_size = self.max_planned_size(id, offset_bytes, current_size);
+        if requested > max_size {
+            return Err("partition size exceeds the available space".into());
+        }
+
+        let target = PartitionRef::Planned { id: id.to_string() };
+        self.plan.operations.retain(|operation| {
+            !matches!(operation, PartitionOperation::Create { id: current, .. } if current == id)
+        });
+        self.plan.mounts.retain(|mount| {
+            !matches!(&mount.target, PartitionRef::Planned { id: current } if current == id)
+        });
+        self.plan.operations.push(PartitionOperation::Create {
+            id: id.to_string(),
+            offset_bytes,
+            size_bytes: requested,
+            gpt_type: gpt_type(&spec).into(),
+            name: if spec.label.is_empty() {
+                "Sirius".into()
+            } else {
+                spec.label.clone()
+            },
+            filesystem: spec.filesystem.clone(),
+            label: spec.label.clone(),
+        });
+        self.add_mount(target, &spec);
+        Ok(())
+    }
+
+    /// Maximum size (in bytes) that the planned `Create` operation with `id`,
+    /// currently at `offset_bytes`, could grow to without overlapping
+    /// anything else. Mirrors `remaining_region()`'s "find the base free
+    /// region this offset came from" framing, but the bound itself has to be
+    /// the *nearest* thing that starts after `offset_bytes` — an existing
+    /// partition, another planned `Create`, or the end of the original free
+    /// region — rather than `remaining_region()`'s trailing-cursor value.
+    /// Reusing `remaining_region()` directly does not work here: its cursor
+    /// is the rightmost claimed edge across *all* creates in the region, so
+    /// if another planned partition sits further down the same free region,
+    /// removing our own op and asking `remaining_region()` for the result
+    /// would report free space all the way to the end of the region,
+    /// letting an edit grow straight through that later partition. Scanning
+    /// for the nearest start strictly after `offset_bytes` avoids that.
+    fn max_planned_size(&self, id: &str, offset_bytes: u64, current_size: u64) -> u64 {
+        let end_bound = self
+            .disk
+            .free_regions
+            .iter()
+            .find(|region| {
+                region.offset_bytes <= offset_bytes
+                    && offset_bytes < region.offset_bytes.saturating_add(region.size_bytes)
+            })
+            .map(|region| region.offset_bytes.saturating_add(region.size_bytes))
+            .unwrap_or_else(|| offset_bytes.saturating_add(current_size));
+
+        let mut bound = end_bound;
+        for partition in &self.disk.partitions {
+            if partition.start_bytes > offset_bytes {
+                bound = bound.min(partition.start_bytes);
+            }
+        }
+        for operation in &self.plan.operations {
+            if let PartitionOperation::Create {
+                id: current,
+                offset_bytes: other_offset,
+                ..
+            } = operation
+            {
+                if current != id && *other_offset > offset_bytes {
+                    bound = bound.min(*other_offset);
+                }
+            }
+        }
+        bound.saturating_sub(offset_bytes)
+    }
+
+    /// Current values and growth bound for a planned (not yet created)
+    /// partition, used to prefill the edit-planned dialog. `None` if `id`
+    /// does not match any planned `Create` operation.
+    pub fn planned_details(&self, id: &str) -> Option<PlannedDetails> {
+        let (offset_bytes, size_bytes, filesystem, label) =
+            self.plan
+                .operations
+                .iter()
+                .find_map(|operation| match operation {
+                    PartitionOperation::Create {
+                        id: current,
+                        offset_bytes,
+                        size_bytes,
+                        filesystem,
+                        label,
+                        ..
+                    } if current == id => Some((
+                        *offset_bytes,
+                        *size_bytes,
+                        filesystem.clone(),
+                        label.clone(),
+                    )),
+                    _ => None,
+                })?;
+        let max_size_bytes = self.max_planned_size(id, offset_bytes, size_bytes);
+        let mount_point = self
+            .plan
+            .mounts
+            .iter()
+            .find(|mount| {
+                matches!(&mount.target, PartitionRef::Planned { id: current } if current == id)
+            })
+            .map(|mount| mount.mount_point.clone())
+            .unwrap_or_default();
+        Some(PlannedDetails {
+            filesystem,
+            size_bytes,
+            max_size_bytes,
+            mount_point,
+            label,
+        })
     }
 
     pub fn delete_planned(&mut self, id: &str) -> Result<(), String> {
@@ -336,6 +484,134 @@ mod tests {
         assert!(!draft.plan.operations.iter().any(|operation| {
             matches!(operation, PartitionOperation::Create { id: current, .. } if current == &id)
         }));
+    }
+
+    fn planned_id(draft: &PartitionDraft) -> String {
+        draft
+            .plan
+            .operations
+            .iter()
+            .find_map(|operation| match operation {
+                PartitionOperation::Create { id, .. } => Some(id.clone()),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn edit_planned_shrink_frees_up_remaining_region() {
+        let disk = disk();
+        let mut draft = PartitionDraft::new(&disk, None).unwrap();
+        draft.create(0, root_spec()).unwrap();
+        let id = planned_id(&draft);
+        assert_eq!(
+            draft.remaining_region(0).unwrap().size_bytes,
+            29 * GIB_BYTES
+        );
+
+        let mut spec = root_spec();
+        spec.size_gib = 20.0;
+        draft.edit_planned(&id, spec).unwrap();
+
+        assert_eq!(
+            draft.remaining_region(0).unwrap().size_bytes,
+            39 * GIB_BYTES
+        );
+        assert!(matches!(
+            &draft.plan.operations[0],
+            PartitionOperation::Create { size_bytes, .. } if *size_bytes == 20 * GIB_BYTES
+        ));
+        assert_eq!(draft.plan.mounts.len(), 1);
+    }
+
+    #[test]
+    fn edit_planned_grow_into_free_space_succeeds() {
+        let disk = disk();
+        let mut draft = PartitionDraft::new(&disk, None).unwrap();
+        draft.create(0, root_spec()).unwrap();
+        let id = planned_id(&draft);
+
+        let mut spec = root_spec();
+        spec.size_gib = 59.0; // grow to fill the entire free region
+        draft.edit_planned(&id, spec).unwrap();
+
+        assert!(draft.remaining_region(0).is_none());
+        assert!(matches!(
+            &draft.plan.operations[0],
+            PartitionOperation::Create { size_bytes, .. } if *size_bytes == 59 * GIB_BYTES
+        ));
+    }
+
+    #[test]
+    fn edit_planned_grow_beyond_available_space_is_rejected_without_mutating_the_plan() {
+        let disk = disk();
+        let mut draft = PartitionDraft::new(&disk, None).unwrap();
+        draft.create(0, root_spec()).unwrap();
+        let id = planned_id(&draft);
+        let before = draft.plan.clone();
+
+        let mut spec = root_spec();
+        spec.size_gib = 60.0; // exceeds the 59 GiB free region
+        assert!(draft.edit_planned(&id, spec).is_err());
+        assert_eq!(draft.plan.operations, before.operations);
+        assert_eq!(draft.plan.mounts, before.mounts);
+    }
+
+    #[test]
+    fn edit_planned_on_missing_id_returns_not_found_error() {
+        let disk = disk();
+        let mut draft = PartitionDraft::new(&disk, None).unwrap();
+        let err = draft
+            .edit_planned("does-not-exist", root_spec())
+            .unwrap_err();
+        assert_eq!(err, "planned partition no longer exists");
+    }
+
+    #[test]
+    fn edit_planned_growth_is_bounded_by_a_later_planned_create() {
+        let disk = disk();
+        let mut draft = PartitionDraft::new(&disk, None).unwrap();
+        draft.create(0, root_spec()).unwrap();
+        let first_id = planned_id(&draft);
+
+        let mut home_spec = root_spec();
+        home_spec.size_gib = 10.0;
+        home_spec.mount_point = "/home".into();
+        home_spec.label = "home".into();
+        draft.create(0, home_spec).unwrap();
+
+        // The first partition is immediately followed by the second, so it
+        // cannot grow at all without overlapping it.
+        let mut grow = root_spec();
+        grow.size_gib = 31.0;
+        assert!(draft.edit_planned(&first_id, grow).is_err());
+
+        // Deleting the blocking partition frees up room to grow again.
+        let second_id = draft
+            .plan
+            .operations
+            .iter()
+            .find_map(|operation| match operation {
+                PartitionOperation::Create { id, size_bytes, .. }
+                    if *size_bytes == 10 * GIB_BYTES =>
+                {
+                    Some(id.clone())
+                }
+                _ => None,
+            })
+            .unwrap();
+        draft.delete_planned(&second_id).unwrap();
+
+        let mut grow_more = root_spec();
+        grow_more.size_gib = 40.0;
+        draft.edit_planned(&first_id, grow_more).unwrap();
+        assert!(matches!(
+            draft.plan.operations.iter().find(|operation| matches!(
+                operation,
+                PartitionOperation::Create { id, .. } if id == &first_id
+            )),
+            Some(PartitionOperation::Create { size_bytes, .. }) if *size_bytes == 40 * GIB_BYTES
+        ));
     }
 
     #[test]

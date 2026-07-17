@@ -464,6 +464,16 @@ fn partition_list(
             row.set_subtitle(&format!("{} • {}", filesystem, mount));
             add_size(&row, *size_bytes);
             row.add_css_class("accent");
+            let edit = gtk::Button::from_icon_name("document-edit-symbolic");
+            edit.add_css_class("flat");
+            edit.set_sensitive(manual);
+            edit.set_tooltip_text(Some(tr(lang, "storage.edit")));
+            let page_sender = sender.clone();
+            let edit_id = id.clone();
+            edit.connect_clicked(move |_| {
+                page_sender.input(StorageMsg::OpenEditPlanned(edit_id.clone()))
+            });
+            row.add_suffix(&edit);
             let remove = gtk::Button::from_icon_name("user-trash-symbolic");
             remove.add_css_class("flat");
             remove.set_tooltip_text(Some(tr(lang, "storage.delete")));

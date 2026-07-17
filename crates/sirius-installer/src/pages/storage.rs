@@ -10,7 +10,7 @@ use super::{PageOutput, StorageSelection};
 use crate::backend::storage::{scan_disks, DiskSnapshot};
 use crate::config_model::{InstallType, PartitionPlan};
 use draft::{PartitionDraft, PartitionSpec};
-use partition_dialog::DialogTarget;
+use partition_dialog::{DialogTarget, EditSource};
 use relm4::adw::prelude::*;
 use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent};
 
@@ -50,6 +50,11 @@ pub enum StorageMsg {
     },
     Delete(usize),
     DeletePlanned(String),
+    OpenEditPlanned(String),
+    EditPlanned {
+        id: String,
+        spec: PartitionSpec,
+    },
     SetLang(crate::i18n::Lang),
 }
 
@@ -175,7 +180,7 @@ impl SimpleComponent for StoragePage {
                         &self.root.clone().upcast(),
                         &sender,
                         DialogTarget::Edit(partition),
-                        Some(existing),
+                        Some(EditSource::Existing(existing)),
                         self.lang,
                     );
                 }
@@ -206,6 +211,33 @@ impl SimpleComponent for StoragePage {
                     .as_mut()
                     .ok_or_else(|| "partition draft is not available".to_string())
                     .and_then(|draft| draft.delete_planned(&id))
+                    .err();
+                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.emit(&sender);
+            }
+            StorageMsg::OpenEditPlanned(id) => {
+                if let Some(details) = self.draft.as_ref().and_then(|d| d.planned_details(&id)) {
+                    partition_dialog::show(
+                        &self.root.clone().upcast(),
+                        &sender,
+                        DialogTarget::EditPlanned(id),
+                        Some(EditSource::Planned {
+                            filesystem: &details.filesystem,
+                            size_bytes: details.size_bytes,
+                            max_size_bytes: details.max_size_bytes,
+                            mount_point: &details.mount_point,
+                            label: &details.label,
+                        }),
+                        self.lang,
+                    );
+                }
+            }
+            StorageMsg::EditPlanned { id, spec } => {
+                self.draft_error = self
+                    .draft
+                    .as_mut()
+                    .ok_or_else(|| "partition draft is not available".to_string())
+                    .and_then(|draft| draft.edit_planned(&id, spec))
                     .err();
                 self.plan = self.draft.as_ref().map(|d| d.plan().clone());
                 self.emit(&sender);
