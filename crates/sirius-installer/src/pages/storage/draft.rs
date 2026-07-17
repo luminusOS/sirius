@@ -68,6 +68,8 @@ impl PartitionDraft {
         &self.plan
     }
 
+    // Kept as part of the pure draft API and exercised by tests; no production caller since the draft now stays alive across messages.
+    #[allow(dead_code)]
     pub fn into_plan(self) -> PartitionPlan {
         self.plan
     }
