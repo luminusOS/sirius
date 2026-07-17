@@ -56,8 +56,7 @@ fn largest_disk_bytes() -> u64 {
 
 /// efivar SecureBoot state. The 5th byte of the variable is 1 when enabled.
 fn read_secure_boot() -> Option<bool> {
-    let path =
-        "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
+    let path = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
     let bytes = std::fs::read(path).ok()?;
     bytes.get(4).map(|b| *b == 1)
 }
@@ -123,7 +122,11 @@ fn parse_lsblk_line(line: &str) -> Option<DiskInfo> {
     let model = fields.get("MODEL").map(|m| m.trim()).unwrap_or_default();
     Some(DiskInfo {
         path: format!("/dev/{name}"),
-        model: if model.is_empty() { "Disk".into() } else { model.into() },
+        model: if model.is_empty() {
+            "Disk".into()
+        } else {
+            model.into()
+        },
         size_bytes: size,
     })
 }
@@ -166,8 +169,9 @@ mod tests {
 
     #[test]
     fn lsblk_line_defaults_missing_model() {
-        let d = parse_lsblk_line(r#"NAME="nvme0n1" SIZE="512000000000" MODEL="" TYPE="disk" RO="0""#)
-            .unwrap();
+        let d =
+            parse_lsblk_line(r#"NAME="nvme0n1" SIZE="512000000000" MODEL="" TYPE="disk" RO="0""#)
+                .unwrap();
         assert_eq!(d.model, "Disk");
     }
 }

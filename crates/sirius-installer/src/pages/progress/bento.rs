@@ -37,7 +37,11 @@ fn parse_commandline_argv(commandline: &str) -> Option<Vec<String>> {
         .filter_map(|arg| arg.to_str().map(str::to_owned))
         .filter(|arg| !FIELD_CODES.contains(&arg.as_str()))
         .collect();
-    if argv.is_empty() { None } else { Some(argv) }
+    if argv.is_empty() {
+        None
+    } else {
+        Some(argv)
+    }
 }
 
 /// Resolves the default browser's argv (with field codes stripped) via the
@@ -83,8 +87,7 @@ fn spawn_capped(argv: &[String], url: &str) -> std::io::Result<std::process::Chi
 ///   image), falls back to the original uncapped `gtk::UriLauncher` launch
 ///   and logs a warning.
 fn open_link_capped(url: &str, window: Option<&gtk::Window>) {
-    let argv = resolve_browser_argv()
-        .unwrap_or_else(|| vec!["gio".to_owned(), "open".to_owned()]);
+    let argv = resolve_browser_argv().unwrap_or_else(|| vec!["gio".to_owned(), "open".to_owned()]);
 
     match spawn_capped(&argv, url) {
         Ok(mut child) => {
@@ -116,9 +119,7 @@ fn open_link_capped(url: &str, window: Option<&gtk::Window>) {
             });
         }
         Err(err) => {
-            tracing::warn!(
-                "systemd-run unavailable ({err}); opening link without a memory cap"
-            );
+            tracing::warn!("systemd-run unavailable ({err}); opening link without a memory cap");
             gtk::UriLauncher::new(url).launch(window, gio::Cancellable::NONE, |_| {});
         }
     }

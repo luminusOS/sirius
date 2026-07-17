@@ -4,7 +4,12 @@ use std::path::Path;
 /// Pure UEFI check: passes when the EFI firmware sysfs path exists.
 pub fn probe_uefi(efi_path: &Path) -> Check {
     if efi_path.exists() {
-        Check::new("uefi", "UEFI firmware", Status::Pass, "EFI firmware detected")
+        Check::new(
+            "uefi",
+            "UEFI firmware",
+            Status::Pass,
+            "EFI firmware detected",
+        )
     } else {
         Check::new(
             "uefi",
@@ -91,7 +96,12 @@ pub fn probe_secure_boot(enabled: Option<bool>) -> Check {
 /// or `None` when running on bare metal.
 pub fn probe_virt(detected: Option<&str>) -> Check {
     match detected {
-        None => Check::new("virt", "Virtualization", Status::Pass, "running on bare metal"),
+        None => Check::new(
+            "virt",
+            "Virtualization",
+            Status::Pass,
+            "running on bare metal",
+        ),
         Some(kind) => Check::new(
             "virt",
             "Virtualization",

@@ -48,10 +48,7 @@ pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) 
 
     content.append(&disk_selector(&state, sender));
 
-    if let Some(disk) = state
-        .selected
-        .and_then(|index| state.disks.get(index))
-    {
+    if let Some(disk) = state.selected.and_then(|index| state.disks.get(index)) {
         let plan = state.draft.map(PartitionDraft::plan);
 
         content.append(&disk_map(disk, plan, state.lang));
