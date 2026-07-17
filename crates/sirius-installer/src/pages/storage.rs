@@ -52,6 +52,7 @@ pub enum StorageMsg {
     ToggleTpm(bool),
     OpenEditor,
     CloseEditor,
+    EditorClosed,
     OpenCreate(usize),
     Create {
         region: usize,
@@ -183,11 +184,22 @@ impl SimpleComponent for StoragePage {
                     .content_width(760)
                     .content_height(640)
                     .build();
+                // AdwDialog can be dismissed by means we never route through
+                // our own messages (Escape, clicking the backdrop), so this
+                // signal is the only reliable place to learn the dialog is
+                // gone. Without it `self.editor` goes stale: OpenEditor's
+                // `is_some()` guard blocks reopening forever, and the next
+                // programmatic close() hits an already-not-presented dialog
+                // (the "Trying to close AdwDialog ... that's not presented"
+                // critical).
+                let closed_sender = sender.clone();
+                dialog.connect_closed(move |_| closed_sender.input(StorageMsg::EditorClosed));
                 self.editor = Some(dialog.clone());
                 self.refresh_editor(&sender);
                 dialog.present(Some(&self.root));
             }
             StorageMsg::CloseEditor => self.close_editor(),
+            StorageMsg::EditorClosed => self.editor = None,
             StorageMsg::OpenCreate(region) => {
                 if let Some(free) = self
                     .draft
