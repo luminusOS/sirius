@@ -3,7 +3,6 @@
 //! Manual actions only mutate `PartitionPlan`; no disk write happens here.
 
 mod draft;
-mod editor_view;
 mod page_view;
 mod partition_dialog;
 
@@ -13,7 +12,7 @@ use crate::config_model::{InstallType, PartitionPlan};
 use draft::{PartitionDraft, PartitionSpec};
 use partition_dialog::DialogTarget;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct StoragePage {
     root: gtk::ScrolledWindow,
@@ -26,19 +25,17 @@ pub struct StoragePage {
     tpm: bool,
     plan: Option<PartitionPlan>,
     error: Option<String>,
-    editor: Option<adw::Dialog>,
-    /// Draft edited by the partition dialog. It is committed only by Apply.
-    editor_draft: Option<PartitionDraft>,
-    editor_error: Option<String>,
+    /// Draft for the inline manual-partitioning editor. Every successful
+    /// mutation is folded into `plan` and emitted immediately.
+    draft: Option<PartitionDraft>,
+    draft_error: Option<String>,
 }
 
 #[derive(Debug)]
 pub enum StorageMsg {
     Selected(usize),
     SetManual(bool),
-    OpenCustom,
-    CloseCustom,
-    ApplyCustom,
+    ResetDraft,
     ToggleEncrypt(bool),
     ToggleTpm(bool),
     OpenCreate(usize),
@@ -95,9 +92,8 @@ impl SimpleComponent for StoragePage {
             tpm: false,
             plan: None,
             error,
-            editor: None,
-            editor_draft: None,
-            editor_error: None,
+            draft: None,
+            draft_error: None,
         };
         let mut widgets = StoragePageWidgets { root };
         // Imperative pages do not receive an automatic first update. Build the
@@ -110,44 +106,27 @@ impl SimpleComponent for StoragePage {
         match msg {
             StorageMsg::Selected(index) => {
                 self.selected = Some(index);
-                self.reset_plan();
+                if self.manual {
+                    self.rebuild_draft();
+                } else {
+                    self.reset_plan();
+                }
                 self.emit(&sender);
             }
             StorageMsg::SetManual(manual) => {
                 self.manual = manual;
                 self.encrypt = false;
                 self.tpm = false;
-                self.reset_plan();
-                if !manual {
-                    self.discard_editor();
+                if manual {
+                    self.rebuild_draft();
+                } else {
+                    self.reset_plan();
                 }
                 self.emit(&sender);
             }
-            StorageMsg::OpenCustom => {
-                if !self.manual || self.disk().is_none() {
-                    return;
-                }
-                self.open_editor(&sender);
-            }
-            StorageMsg::CloseCustom => self.discard_editor(),
-            StorageMsg::ApplyCustom => {
-                let result = self
-                    .editor_draft
-                    .as_ref()
-                    .ok_or_else(|| "partition draft is not available".to_string())
-                    .and_then(|draft| draft.validate(self.uefi));
-                match result {
-                    Ok(()) => {
-                        self.plan = self.editor_draft.take().map(PartitionDraft::into_plan);
-                        self.editor_error = None;
-                        self.close_editor();
-                        self.emit(&sender);
-                    }
-                    Err(error) => {
-                        self.editor_error = Some(error);
-                        self.refresh_editor(&sender);
-                    }
-                }
+            StorageMsg::ResetDraft => {
+                self.rebuild_draft();
+                self.emit(&sender);
             }
             StorageMsg::ToggleEncrypt(enabled) => {
                 self.encrypt = enabled;
@@ -162,12 +141,12 @@ impl SimpleComponent for StoragePage {
             }
             StorageMsg::OpenCreate(region) => {
                 if let Some(free) = self
-                    .editor_draft
+                    .draft
                     .as_ref()
                     .and_then(|draft| draft.remaining_region(region))
                 {
                     partition_dialog::show(
-                        &self.dialog_parent(),
+                        &self.root.clone().upcast(),
                         &sender,
                         DialogTarget::Create(region, free),
                         None,
@@ -176,18 +155,19 @@ impl SimpleComponent for StoragePage {
                 }
             }
             StorageMsg::Create { region, spec } => {
-                self.editor_error = self
-                    .editor_draft
+                self.draft_error = self
+                    .draft
                     .as_mut()
                     .ok_or_else(|| "partition draft is not available".to_string())
                     .and_then(|draft| draft.create(region, spec))
                     .err();
-                self.refresh_editor(&sender);
+                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.emit(&sender);
             }
             StorageMsg::OpenEdit(partition) => {
                 if let Some(existing) = self.disk().and_then(|d| d.partitions.get(partition)) {
                     partition_dialog::show(
-                        &self.dialog_parent(),
+                        &self.root.clone().upcast(),
                         &sender,
                         DialogTarget::Edit(partition),
                         Some(existing),
@@ -196,31 +176,34 @@ impl SimpleComponent for StoragePage {
                 }
             }
             StorageMsg::Edit { partition, spec } => {
-                self.editor_error = self
-                    .editor_draft
+                self.draft_error = self
+                    .draft
                     .as_mut()
                     .ok_or_else(|| "partition draft is not available".to_string())
                     .and_then(|draft| draft.edit_existing(partition, spec))
                     .err();
-                self.refresh_editor(&sender);
+                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.emit(&sender);
             }
             StorageMsg::Delete(partition) => {
-                self.editor_error = self
-                    .editor_draft
+                self.draft_error = self
+                    .draft
                     .as_mut()
                     .ok_or_else(|| "partition draft is not available".to_string())
                     .and_then(|draft| draft.delete_existing(partition))
                     .err();
-                self.refresh_editor(&sender);
+                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.emit(&sender);
             }
             StorageMsg::DeletePlanned(id) => {
-                self.editor_error = self
-                    .editor_draft
+                self.draft_error = self
+                    .draft
                     .as_mut()
                     .ok_or_else(|| "partition draft is not available".to_string())
                     .and_then(|draft| draft.delete_planned(&id))
                     .err();
-                self.refresh_editor(&sender);
+                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+                self.emit(&sender);
             }
             StorageMsg::SetLang(lang) => self.lang = lang,
         }
@@ -234,13 +217,15 @@ impl SimpleComponent for StoragePage {
                 manual: self.manual,
                 encrypt: self.encrypt,
                 tpm: self.tpm,
+                draft: self.draft.as_ref(),
+                draft_error: self.draft_error.as_deref(),
+                uefi: self.uefi,
                 error: self.error.as_deref(),
                 lang: self.lang,
             },
             &sender,
         );
         widgets.root.set_child(Some(&clamp));
-        self.refresh_editor(&sender);
     }
 }
 
@@ -249,64 +234,31 @@ impl StoragePage {
         self.selected.and_then(|index| self.disks.get(index))
     }
 
-    fn open_editor(&mut self, sender: &ComponentSender<Self>) {
-        self.discard_editor();
+    /// Rebuild a fresh draft for the currently selected disk, discarding any
+    /// staged changes. Used both when entering manual mode and when the
+    /// selected disk changes while manual mode is active.
+    fn rebuild_draft(&mut self) {
+        self.draft = None;
+        self.draft_error = None;
         let Some(disk) = self.disk() else {
+            self.plan = None;
             return;
         };
-        match PartitionDraft::new(disk, self.plan.as_ref()) {
-            Ok(draft) => self.editor_draft = Some(draft),
+        match PartitionDraft::new(disk, None) {
+            Ok(draft) => {
+                self.plan = Some(draft.plan().clone());
+                self.draft = Some(draft);
+            }
             Err(error) => {
-                self.editor_error = Some(error);
-                return;
+                self.draft_error = Some(error);
+                self.plan = None;
             }
         }
-        let dialog = adw::Dialog::builder()
-            .title(crate::i18n::tr(self.lang, "storage.editor"))
-            .content_width(820)
-            .content_height(560)
-            .build();
-        self.editor = Some(dialog.clone());
-        self.refresh_editor(sender);
-        dialog.present(Some(&self.root));
-    }
-
-    fn close_editor(&mut self) {
-        if let Some(dialog) = self.editor.take() {
-            dialog.close();
-        }
-    }
-
-    fn discard_editor(&mut self) {
-        self.editor_draft = None;
-        self.editor_error = None;
-        self.close_editor();
-    }
-
-    fn refresh_editor(&self, sender: &ComponentSender<Self>) {
-        let (Some(dialog), Some(disk)) = (&self.editor, self.disk()) else {
-            return;
-        };
-        dialog.set_child(Some(&editor_view::build(
-            disk,
-            self.editor_draft.as_ref().map(PartitionDraft::plan),
-            self.editor_error.as_deref(),
-            self.uefi,
-            sender,
-            self.lang,
-        )));
-    }
-
-    fn dialog_parent(&self) -> gtk::Widget {
-        self.editor
-            .as_ref()
-            .map(|dialog| dialog.clone().upcast())
-            .unwrap_or_else(|| self.root.clone().upcast())
     }
 
     fn reset_plan(&mut self) {
-        self.editor_draft = None;
-        self.editor_error = None;
+        self.draft = None;
+        self.draft_error = None;
         self.plan = self.disk().map(PartitionDraft::empty_plan);
     }
 
