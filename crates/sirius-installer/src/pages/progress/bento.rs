@@ -3,8 +3,106 @@
 use crate::backend::distro::Bento;
 use relm4::adw::prelude::*;
 use relm4::gtk;
+use relm4::gtk::gio;
+use relm4::gtk::gio::prelude::AppInfoExt;
+use relm4::gtk::glib;
+use std::process::{Command, Stdio};
+use std::thread;
 
 const MAX_BENTOS: usize = 3;
+
+/// XDG desktop-entry field codes that get substituted with file/URL
+/// arguments by the launcher. We build the argv ourselves, so these are
+/// stripped and the URL is appended explicitly instead.
+const FIELD_CODES: [&str; 4] = ["%u", "%U", "%f", "%F"];
+
+/// Cap on how much memory the launched browser (and anything it spawns) may
+/// use, enforced via a transient `systemd-run --user --scope`. The live ISO
+/// runs entirely from tmpfs, so an uncapped browser can exhaust RAM and take
+/// the whole session down with it.
+const MEMORY_HIGH: &str = "MemoryHigh=1G";
+const MEMORY_MAX: &str = "MemoryMax=1536M";
+
+/// Parses a GIO `AppInfo` commandline (e.g. `"/usr/bin/epiphany %u"`) into
+/// an argv with desktop-entry field codes removed. Returns `None` if the
+/// commandline can't be parsed or has nothing left after stripping codes.
+///
+/// Split out as a pure function (no process spawning, no GTK/display
+/// dependency beyond `glib::shell_parse_argv`'s string parsing) so it's
+/// unit-testable in isolation.
+fn parse_commandline_argv(commandline: &str) -> Option<Vec<String>> {
+    let argv = glib::shell_parse_argv(commandline).ok()?;
+    let argv: Vec<String> = argv
+        .into_iter()
+        .filter_map(|arg| arg.to_str().map(str::to_owned))
+        .filter(|arg| !FIELD_CODES.contains(&arg.as_str()))
+        .collect();
+    if argv.is_empty() { None } else { Some(argv) }
+}
+
+/// Resolves the default browser's argv (with field codes stripped) via the
+/// desktop's default handler for the `https` URI scheme.
+fn resolve_browser_argv() -> Option<Vec<String>> {
+    let app_info = gio::AppInfo::default_for_uri_scheme("https")?;
+    let commandline = app_info.commandline()?;
+    let commandline = commandline.to_str()?;
+    parse_commandline_argv(commandline)
+}
+
+/// Spawns `argv` followed by `url`, wrapped in a memory-capped transient
+/// systemd scope. `--scope` blocks for the lifetime of the wrapped process,
+/// so callers must not `.wait()` on the returned child from the GTK main
+/// loop thread.
+fn spawn_capped(argv: &[String], url: &str) -> std::io::Result<std::process::Child> {
+    Command::new("systemd-run")
+        .args([
+            "--user",
+            "--scope",
+            "--quiet",
+            "-p",
+            MEMORY_HIGH,
+            "-p",
+            MEMORY_MAX,
+            "--",
+        ])
+        .args(argv)
+        .arg(url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+}
+
+/// Opens `url` in the default browser, capped to a bounded amount of memory
+/// so it can't exhaust RAM on the tmpfs-backed live session.
+///
+/// - Resolves the default `https` handler's argv (falling back to
+///   `gio open <url>` if none is registered) and runs it under
+///   `systemd-run --user --scope` with `MemoryHigh`/`MemoryMax` set.
+/// - If `systemd-run` itself can't be spawned (e.g. missing on the live
+///   image), falls back to the original uncapped `gtk::UriLauncher` launch
+///   and logs a warning.
+fn open_link_capped(url: &str, window: Option<&gtk::Window>) {
+    let argv = resolve_browser_argv()
+        .unwrap_or_else(|| vec!["gio".to_owned(), "open".to_owned()]);
+
+    match spawn_capped(&argv, url) {
+        Ok(mut child) => {
+            // `--scope` blocks until the wrapped process exits; reap it off
+            // the main loop thread so we don't stall the UI or leave a
+            // zombie behind.
+            thread::spawn(move || {
+                let _ = child.wait();
+            });
+        }
+        Err(err) => {
+            tracing::warn!(
+                "systemd-run unavailable ({err}); opening link without a memory cap"
+            );
+            gtk::UriLauncher::new(url).launch(window, gio::Cancellable::NONE, |_| {});
+        }
+    }
+}
 
 pub(super) fn append_cards(container: &gtk::Box, bentos: &[Bento]) {
     for bento in bentos.iter().take(MAX_BENTOS) {
@@ -69,11 +167,65 @@ fn card(bento: &Bento) -> gtk::Button {
         .build();
     let link = bento.link.clone();
     card.connect_clicked(move |button| {
-        gtk::UriLauncher::new(&link).launch(
-            button.root().and_downcast_ref::<gtk::Window>(),
-            gtk::gio::Cancellable::NONE,
-            |_| {},
-        );
+        open_link_capped(&link, button.root().and_downcast_ref::<gtk::Window>());
     });
     card
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_single_field_code() {
+        assert_eq!(
+            parse_commandline_argv("/usr/bin/epiphany %u"),
+            Some(vec!["/usr/bin/epiphany".to_owned()])
+        );
+    }
+
+    #[test]
+    fn strips_upper_and_lower_field_codes() {
+        for code in ["%u", "%U", "%f", "%F"] {
+            let commandline = format!("/usr/bin/browser --flag {code}");
+            assert_eq!(
+                parse_commandline_argv(&commandline),
+                Some(vec!["/usr/bin/browser".to_owned(), "--flag".to_owned()])
+            );
+        }
+    }
+
+    #[test]
+    fn preserves_argument_order_and_quoting() {
+        assert_eq!(
+            parse_commandline_argv("/usr/bin/firefox --new-window %U"),
+            Some(vec![
+                "/usr/bin/firefox".to_owned(),
+                "--new-window".to_owned()
+            ])
+        );
+        assert_eq!(
+            parse_commandline_argv("\"/usr/bin/my browser\" --flag %u"),
+            Some(vec!["/usr/bin/my browser".to_owned(), "--flag".to_owned()])
+        );
+    }
+
+    #[test]
+    fn no_field_code_keeps_full_argv() {
+        assert_eq!(
+            parse_commandline_argv("/usr/bin/epiphany"),
+            Some(vec!["/usr/bin/epiphany".to_owned()])
+        );
+    }
+
+    #[test]
+    fn empty_after_stripping_returns_none() {
+        assert_eq!(parse_commandline_argv("%u"), None);
+    }
+
+    #[test]
+    fn unparsable_commandline_returns_none() {
+        // Unbalanced quote: g_shell_parse_argv should reject this.
+        assert_eq!(parse_commandline_argv("\"unterminated"), None);
+    }
 }
