@@ -25,3 +25,25 @@ uuid = { workspace = true }
 zbus = { workspace = true }
 zvariant = { workspace = true }
 libreadymade = { workspace = true }
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/sirius", dest = "/usr/bin/sirius", mode = "755" },
+  { source = "../../data/io.sirius.Installer.policy", dest = "/usr/share/polkit-1/actions/io.sirius.Installer.policy", mode = "644" },
+  { source = "../../data/io.sirius.Installer.desktop", dest = "/usr/share/applications/io.sirius.Installer.desktop", mode = "644" },
+  { source = "../../data/icons/hicolor/scalable/apps/io.sirius.Installer.svg", dest = "/usr/share/icons/hicolor/scalable/apps/io.sirius.Installer.svg", mode = "644" },
+  { source = "../../data/distro.toml", dest = "/etc/sirius/distro.toml", mode = "644", config = "noreplace" },
+  { source = "../../data/sirius.toml", dest = "/etc/sirius/sirius.toml", mode = "644", config = "noreplace" },
+  { source = "../../data/repart.d/10-esp.conf", dest = "/usr/share/sirius/repart.d/10-esp.conf", mode = "644" },
+  { source = "../../data/repart.d/20-root.conf", dest = "/usr/share/sirius/repart.d/20-root.conf", mode = "644" },
+]
+
+[package.metadata.generate-rpm.requires]
+systemd = "*"
+bootc = "*"
+cryptsetup = "*"
+polkit = "*"
+udisks2 = "*"
+NetworkManager = "*"
+util-linux = "*"
+hicolor-icon-theme = "*"
