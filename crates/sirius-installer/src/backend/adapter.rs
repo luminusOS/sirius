@@ -1,22 +1,20 @@
-//! Converts the UI's `InstallConfig` (+ distro descriptor) into a serializable
-//! `InstallRequest` that crosses the privilege boundary, and from there into a
-//! libreadymade `Playbook` on the privileged side.
+//! Converts the UI's `InstallConfig` into a serializable `InstallRequest` that
+//! crosses the privilege boundary, and from there into a libreadymade
+//! `Playbook` on the privileged side.
+//!
+//! # Privilege boundary
+//!
+//! The request carries ONLY the user's choices (disk, encryption, locale,
+//! account). What gets installed — the bootc image, repart layout — is read by
+//! the privileged runner itself from the root-owned descriptor at
+//! `/etc/sirius/distro.toml`. The unprivileged UI must not be able to point the
+//! root process at an arbitrary image or repart directory.
 
 use crate::backend::distro::DistroDescriptor;
-use crate::config_model::{InstallConfig, InstallType};
+use crate::config_model::{InstallConfig, InstallType, PartitionPlan};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct InstallRequest {
-    pub bootc_image: String,
-    #[serde(default)]
-    pub bootc_target_imgref: Option<String>,
-    #[serde(default)]
-    pub bootc_enforce_sigpolicy: bool,
-    #[serde(default)]
-    pub bootc_kargs: Vec<String>,
-    #[serde(default)]
-    pub bootc_args: Vec<String>,
-    pub repart_dir: String,
     pub target_disk: String,
     pub encrypt: bool,
     pub tpm: bool,
@@ -27,28 +25,32 @@ pub struct InstallRequest {
     pub hostname: String,
     pub username: String,
     pub full_name: String,
+    pub partition_plan: Option<PartitionPlan>,
 }
 
-/// Build the wire request from collected UI config + the distro descriptor.
+/// Build the wire request from collected UI config.
 /// Returns an error string naming the first missing/invalid required field.
-pub fn build_request(
-    cfg: &InstallConfig,
-    distro: &DistroDescriptor,
-) -> Result<InstallRequest, String> {
+pub fn build_request(cfg: &InstallConfig) -> Result<InstallRequest, String> {
     let target_disk = cfg
         .destination_disk
         .clone()
         .ok_or("no destination disk selected")?;
     let install_type = cfg.install_type.ok_or("no partition mode selected")?;
-    cfg.user.validate()?;
     let encrypt = matches!(install_type, InstallType::Encrypted) || cfg.encrypt;
+    if matches!(install_type, InstallType::Manual) {
+        let plan = cfg
+            .partition_plan
+            .as_ref()
+            .ok_or("manual partitioning has no partition plan")?;
+        if plan.disk_path != target_disk {
+            return Err("manual partition plan targets a different disk".into());
+        }
+        plan.validate(std::path::Path::new("/sys/firmware/efi").exists())?;
+    }
+    if encrypt || !cfg.user.is_empty() {
+        cfg.user.validate()?;
+    }
     Ok(InstallRequest {
-        bootc_image: distro.bootc.image.clone(),
-        bootc_target_imgref: distro.bootc.target_imgref.clone(),
-        bootc_enforce_sigpolicy: distro.bootc.enforce_sigpolicy,
-        bootc_kargs: distro.bootc.kargs.clone(),
-        bootc_args: distro.bootc.args.clone(),
-        repart_dir: distro.disk.repart_dir.clone(),
         target_disk,
         encrypt,
         tpm: cfg.tpm && encrypt,
@@ -64,14 +66,17 @@ pub fn build_request(
         hostname: cfg.user.hostname.clone(),
         username: cfg.user.username.clone(),
         full_name: cfg.user.full_name.clone(),
+        partition_plan: cfg.partition_plan.clone(),
     })
 }
 
 impl InstallRequest {
-    /// Construct the real libreadymade [`Playbook`] from this request.
+    /// Construct the real libreadymade [`Playbook`] from this request plus the
+    /// distro descriptor.
     ///
     /// Runs on the privileged side after the request has crossed the pkexec
-    /// boundary as JSON.
+    /// boundary as JSON; `distro` is loaded there from the root-owned
+    /// `/etc/sirius/distro.toml`, never taken from the request.
     ///
     /// # Postinstall coverage
     ///
@@ -89,32 +94,41 @@ impl InstallRequest {
     ///
     /// `username`/`full_name`/`hostname`/`timezone`/`keyboard` are carried on the
     /// request but have no upstream module to consume them here — see the report.
-    pub fn into_playbook(self) -> libreadymade::playbook::Playbook {
+    pub fn into_playbook(
+        self,
+        distro: &DistroDescriptor,
+        manual_mounts: Option<libreadymade::backend::mounts::Mounts>,
+    ) -> libreadymade::playbook::Playbook {
         use libreadymade::backend::postinstall::initial_setup::InitialSetup;
         use libreadymade::backend::postinstall::language::Language;
         use libreadymade::backend::postinstall::Module;
+        use libreadymade::backend::provisioners::disk::manual::Manual;
         use libreadymade::backend::provisioners::disk::repart::Repart;
         use libreadymade::backend::provisioners::filesystem::Bootc;
         use libreadymade::backend::provisioners::{DiskProvisioner, FileSystemProvisioner};
         use libreadymade::playbook::{EncryptionConfig, Playbook};
         use std::path::PathBuf;
 
-        let encryption = self.encrypt.then(|| EncryptionConfig {
+        let encryption = self.encrypt.then_some(EncryptionConfig {
             tpm: self.tpm,
             encryption_key: self.encryption_key,
         });
 
-        let disk_provisioner = DiskProvisioner::Repart(Repart {
-            directory: PathBuf::from(self.repart_dir),
-            copy_source: None,
-        });
+        let disk_provisioner = if let Some(mounts) = manual_mounts {
+            DiskProvisioner::Manual(Manual { mounts })
+        } else {
+            DiskProvisioner::Repart(Repart {
+                directory: PathBuf::from(distro.disk.repart_dir.clone()),
+                copy_source: None,
+            })
+        };
 
         let filesystem_provisioner = Some(FileSystemProvisioner::Bootc(Bootc {
-            imgref: self.bootc_image,
-            target_imgref: self.bootc_target_imgref,
-            enforce_sigpolicy: self.bootc_enforce_sigpolicy,
-            kargs: self.bootc_kargs,
-            args: self.bootc_args,
+            imgref: distro.bootc.image.clone(),
+            target_imgref: distro.bootc.target_imgref.clone(),
+            enforce_sigpolicy: distro.bootc.enforce_sigpolicy,
+            kargs: distro.bootc.kargs.clone(),
+            args: distro.bootc.args.clone(),
         }));
 
         let postinstall = vec![
@@ -150,6 +164,8 @@ mod tests {
             disk: DiskConfig {
                 repart_dir: "/usr/share/sirius/repart.d".into(),
             },
+            bentos: vec![],
+            branding: Default::default(),
         }
     }
 
@@ -159,7 +175,9 @@ mod tests {
             keyboard: Some("br".into()),
             timezone: Some("America/Sao_Paulo".into()),
             destination_disk: Some("/dev/sda".into()),
+            destination_disk_name: Some("Test Disk".into()),
             install_type: Some(InstallType::Encrypted),
+            partition_plan: None,
             encrypt: false,
             tpm: true,
             user: UserAccount {
@@ -174,13 +192,8 @@ mod tests {
 
     #[test]
     fn builds_request_from_full_config() {
-        let req = build_request(&full_config(), &descriptor()).unwrap();
+        let req = build_request(&full_config()).unwrap();
         assert_eq!(req.target_disk, "/dev/sda");
-        assert_eq!(req.bootc_image, "ghcr.io/example/os:latest");
-        assert_eq!(req.bootc_target_imgref, None);
-        assert!(!req.bootc_enforce_sigpolicy);
-        assert!(req.bootc_kargs.is_empty());
-        assert!(req.bootc_args.is_empty());
         assert!(req.encrypt);
         assert!(req.tpm);
         assert_eq!(req.timezone, "America/Sao_Paulo");
@@ -188,10 +201,20 @@ mod tests {
     }
 
     #[test]
+    fn request_carries_no_image_or_repart_fields() {
+        // The privilege boundary: what gets installed comes from the root-owned
+        // descriptor, never from the unprivileged request.
+        let req = build_request(&full_config()).unwrap();
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("bootc"));
+        assert!(!json.contains("repart"));
+    }
+
+    #[test]
     fn missing_disk_errors() {
         let mut cfg = full_config();
         cfg.destination_disk = None;
-        let err = build_request(&cfg, &descriptor()).unwrap_err();
+        let err = build_request(&cfg).unwrap_err();
         assert_eq!(err, "no destination disk selected");
     }
 
@@ -201,7 +224,7 @@ mod tests {
         cfg.install_type = Some(InstallType::WholeDisk);
         cfg.encrypt = false;
         cfg.tpm = true;
-        let req = build_request(&cfg, &descriptor()).unwrap();
+        let req = build_request(&cfg).unwrap();
         assert!(!req.encrypt);
         assert!(!req.tpm);
     }
@@ -211,32 +234,65 @@ mod tests {
         let mut cfg = full_config();
         cfg.install_type = Some(InstallType::WholeDisk);
         cfg.encrypt = false;
-        let req = build_request(&cfg, &descriptor()).unwrap();
+        let req = build_request(&cfg).unwrap();
         assert_eq!(req.encryption_key, "");
     }
 
     #[test]
-    fn carries_bootc_options_from_descriptor() {
+    fn plaintext_install_allows_missing_user() {
+        let mut cfg = full_config();
+        cfg.install_type = Some(InstallType::WholeDisk);
+        cfg.encrypt = false;
+        cfg.tpm = false;
+        cfg.user = UserAccount::default();
+
+        let req = build_request(&cfg).unwrap();
+        assert!(!req.encrypt);
+        assert_eq!(req.username, "");
+        assert_eq!(req.encryption_key, "");
+    }
+
+    #[test]
+    fn encrypted_install_requires_user_password() {
+        let mut cfg = full_config();
+        cfg.install_type = Some(InstallType::Encrypted);
+        cfg.encrypt = true;
+        cfg.user = UserAccount::default();
+
+        let err = build_request(&cfg).unwrap_err();
+        assert_eq!(err, "Full name is required");
+    }
+
+    #[test]
+    fn playbook_takes_image_and_repart_from_descriptor() {
+        use libreadymade::backend::provisioners::{DiskProvisioner, FileSystemProvisioner};
+
         let mut distro = descriptor();
         distro.bootc.target_imgref = Some("ghcr.io/example/os:stable".into());
         distro.bootc.enforce_sigpolicy = true;
         distro.bootc.kargs = vec!["rhgb".into(), "quiet".into()];
-        distro.bootc.args = vec![
-            "--skip-fetch-check".into(),
-            "--bootloader".into(),
-            "none".into(),
-        ];
+        distro.bootc.args = vec!["--skip-fetch-check".into()];
 
-        let req = build_request(&full_config(), &distro).unwrap();
+        let req = build_request(&full_config()).unwrap();
+        let playbook = req.into_playbook(&distro, None);
+
+        let DiskProvisioner::Repart(repart) = &playbook.disk_provisioner else {
+            panic!("expected repart disk provisioner");
+        };
         assert_eq!(
-            req.bootc_target_imgref,
+            repart.directory,
+            std::path::PathBuf::from("/usr/share/sirius/repart.d")
+        );
+        let Some(FileSystemProvisioner::Bootc(bootc)) = &playbook.filesystem_provisioner else {
+            panic!("expected bootc filesystem provisioner");
+        };
+        assert_eq!(bootc.imgref, "ghcr.io/example/os:latest");
+        assert_eq!(
+            bootc.target_imgref,
             Some("ghcr.io/example/os:stable".into())
         );
-        assert!(req.bootc_enforce_sigpolicy);
-        assert_eq!(req.bootc_kargs, vec!["rhgb", "quiet"]);
-        assert_eq!(
-            req.bootc_args,
-            vec!["--skip-fetch-check", "--bootloader", "none"]
-        );
+        assert!(bootc.enforce_sigpolicy);
+        assert_eq!(bootc.kargs, vec!["rhgb", "quiet"]);
+        assert_eq!(bootc.args, vec!["--skip-fetch-check"]);
     }
 }

@@ -1,13 +1,13 @@
 //! Diagnostics compatibility-gate page.
 //!
-//! Gathers hardware facts, runs all checks, and reports `PageOutput::CanProceed`
-//! based on whether any required check has `Status::Fail`.
+//! Gathers hardware facts and renders the compatibility report. The pure
+//! wizard state owns navigation gating.
 
 use super::PageOutput;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 use sirius_diag::config::DiagnosticsConfig;
-use sirius_diag::{is_blocked, run_all_checks_with_config, Check, Status, SystemFacts};
+use sirius_diag::{run_all_checks_with_config, Status, SystemFacts};
 
 /// Init data: diagnostics thresholds and the check ids that hard-gate the install.
 pub struct DiagnosticsInit {
@@ -15,8 +15,6 @@ pub struct DiagnosticsInit {
 }
 
 pub struct DiagnosticsPage {
-    checks: Vec<Check>,
-    blocked: bool,
     lang: crate::i18n::Lang,
 }
 
@@ -51,9 +49,9 @@ impl SimpleComponent for DiagnosticsPage {
 
         let group = adw::PreferencesGroup::new();
 
+        // The root computes gating once; this page only renders the report.
         let facts = SystemFacts::gather();
         let checks = run_all_checks_with_config(&facts, &init.config);
-        let blocked = is_blocked(&checks, &init.config.require);
 
         for c in &checks {
             let row = adw::ActionRow::new();
@@ -72,7 +70,7 @@ impl SimpleComponent for DiagnosticsPage {
 
         root.set_child(Some(&group));
 
-        let model = DiagnosticsPage { checks, blocked, lang };
+        let model = DiagnosticsPage { lang };
         let widgets = DiagnosticsPageWidgets { root };
 
         ComponentParts { model, widgets }
@@ -85,7 +83,11 @@ impl SimpleComponent for DiagnosticsPage {
     }
 
     fn update_view(&self, widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {
-        widgets.root.set_title(crate::i18n::tr(self.lang, "diagnostics.title"));
-        widgets.root.set_description(Some(crate::i18n::tr(self.lang, "diagnostics.desc")));
+        widgets
+            .root
+            .set_title(crate::i18n::tr(self.lang, "diagnostics.title"));
+        widgets
+            .root
+            .set_description(Some(crate::i18n::tr(self.lang, "diagnostics.desc")));
     }
 }

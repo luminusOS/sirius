@@ -40,8 +40,14 @@ impl SimpleComponent for FinishedPage {
         }
     }
 
-    fn init(_i: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
-        let model = FinishedPage { lang: crate::i18n::Lang::En };
+    fn init(
+        _i: Self::Init,
+        root: Self::Root,
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
+        let model = FinishedPage {
+            lang: crate::i18n::Lang::En,
+        };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
@@ -51,7 +57,10 @@ impl SimpleComponent for FinishedPage {
             FinishedMsg::Reboot => {
                 // Reboot the machine. On a dev box without privileges this will fail; log and
                 // leave the user to reboot manually.
-                match std::process::Command::new("systemctl").arg("reboot").status() {
+                match std::process::Command::new("systemctl")
+                    .arg("reboot")
+                    .status()
+                {
                     Ok(_) => {}
                     Err(e) => tracing::error!("reboot failed: {e}"),
                 }

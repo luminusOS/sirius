@@ -1,5 +1,5 @@
 //! User account page: collects name, username, password, and hostname.
-//! Emits `CanProceed(valid)` on every keystroke and `SetUser` when all fields pass.
+//! Emits the complete draft on every keystroke. The root state owns validation.
 
 use super::PageOutput;
 use crate::config_model::UserAccount;
@@ -105,12 +105,13 @@ impl SimpleComponent for UserPage {
             UserMsg::Password(v) => self.account.password = v,
             UserMsg::PasswordConfirm(v) => self.account.password_confirm = v,
             UserMsg::Hostname(v) => self.account.hostname = v,
-            UserMsg::SetLang(l) => { self.lang = l; return; }
+            UserMsg::SetLang(l) => {
+                self.lang = l;
+                return;
+            }
         }
-        let valid = self.account.validate().is_ok();
-        sender.output(PageOutput::CanProceed(valid)).ok();
-        if valid {
-            sender.output(PageOutput::SetUser(self.account.clone())).ok();
-        }
+        sender
+            .output(PageOutput::SetUser(self.account.clone()))
+            .ok();
     }
 }

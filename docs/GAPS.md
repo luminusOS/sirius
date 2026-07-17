@@ -29,7 +29,10 @@ a first-boot agent.
 - [ ] **Placeholder repart templates.** `data/repart.d/*.conf` are generic ESP + btrfs
   defaults; ship real per-distribution layouts.
 - [ ] **pkexec target is pinned to `/usr/bin/sirius`** (polkit policy). Only works when
-  installed, not when run from `target/debug`.
+  installed, not when run from `target/debug`. Mitigations: when the UI already runs as
+  root the runner is spawned directly (no pkexec), and pkexec exits 126/127 are reported
+  with a clear polkit-agent hint in the progress log. A live session still needs a polkit
+  agent or a rule granting the action (see INSTALL.md).
 - [ ] **libreadymade pin + patch.** Pinned to readymade HEAD `ccdf092`, which does not
   compile due to a one-line `PathBuf == String` bug in the sibling `filesystem-table`
   crate. `vendor/filesystem-table/` carries a one-line-fixed copy overridden via
@@ -39,7 +42,7 @@ a first-boot agent.
   crate's version in lockstep** or the patch silently stops applying.
 - [ ] **Progress bar appears static** during the bootc image pull + repart (upstream emits
   no progress there); only postinstall modules report progress. Textual progress and
-  errors appear in the on-screen log view.
+  errors appear in the log view behind the progress page's log toggle button.
 - [ ] **Real installs are only verified via the ignored VM test** (`tests/vm_install.rs`)
   in a live ISO; there is no unprivileged way to exercise the full path.
 
@@ -50,7 +53,8 @@ The wizard UI (page titles, descriptions, field labels, buttons) is translated l
 are a TODO:
 
 - [ ] Diagnostic check labels/details (generated in `sirius-diag`).
-- [ ] Disk model/size rows on the disk page.
+- [ ] Storage and NetworkManager runtime flows still need hardware-in-the-loop
+  coverage across SATA, NVMe, WPA3 transition mode, and multiple Wi-Fi adapters.
 - [ ] Install progress/log lines (from the privileged runner).
 - [ ] Account validation error messages (from `UserAccount::validate`).
 
@@ -58,9 +62,10 @@ Localizing these requires translating in `sirius-diag` and/or threading the lang
 into the dynamic producers. Add new UI strings to BOTH the `en` and `pt` tables in
 `src/i18n.rs`.
 
-## Not yet implemented
+## Deliberate storage limits
 
-- [ ] **Manual partitioning page** (`manual_partition`) — a known page id but no widget;
-  it is filtered out of the navigator. Implement an advanced partition editor.
-- [ ] **Full Wi-Fi UI** on the network page (currently informational; relies on the
-  system network indicator).
+- [ ] **Resize and move partitions.** The manual editor intentionally supports only
+  create, delete, format, label, and mount assignment. Resizing/moving needs a separate
+  filesystem-aware safety design.
+- [ ] **Manual LUKS layouts.** Encryption remains available in automatic mode only;
+  custom encrypted mount graphs are not yet represented by `PartitionPlan`.

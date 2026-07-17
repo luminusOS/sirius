@@ -12,3 +12,29 @@ image = "ghcr.io/example/os:latest"
 
 [disk]
 repart_dir = "/usr/share/sirius/repart.d"
+
+# Optional: up to three link cards shown on the install progress page
+# (website, help, contribute, ...). Omit the section to show none.
+# [[bento]]
+# title = "Welcome to Example OS"
+# desc = "Learn more about the project"
+# link = "https://example.com"
+# icon = "explore-symbolic"
+#
+# [[bento]]
+# title = "Get help"
+# desc = "Ask questions and report issues"
+# link = "https://example.com/help"
+# icon = "chat-symbolic"
+#
+# [[bento]]
+# title = "Contribute"
+# desc = "Join the project's development"
+# link = "https://example.com/contribute"
+# icon = "applications-development-symbolic"
+
+# Optional: welcome-page branding. `logo` (image file path) wins over `icon`
+# (themed icon name); default is a star, for Sirius.
+# [branding]
+# logo = "/usr/share/sirius/logo.png"
+# icon = "starred-symbolic"

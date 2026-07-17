@@ -1,5 +1,4 @@
-//! Sirius installer entry point. This plan implements only the `diag` subcommand;
-//! Plan 2 adds the GTK wizard (default, no subcommand) and Plan 3 adds `--run-playbook`.
+//! Sirius installer entry point: diagnostics, dry-run and the GTK assistant.
 
 mod app;
 mod backend;
@@ -9,6 +8,7 @@ mod i18n;
 mod logging;
 mod navigator;
 mod pages;
+mod style;
 
 use clap::{Parser, Subcommand};
 use sirius_diag::config::CONFIG_PATH;
@@ -68,7 +68,9 @@ fn sirius_installer_dry_run() -> serde_json::Value {
         keyboard: Some("us".into()),
         timezone: Some("UTC".into()),
         destination_disk: Some("/dev/sda".into()),
+        destination_disk_name: Some("Demo Disk".into()),
         install_type: Some(InstallType::WholeDisk),
+        partition_plan: None,
         encrypt: false,
         tpm: false,
         user: UserAccount {
@@ -83,8 +85,8 @@ fn sirius_installer_dry_run() -> serde_json::Value {
         &std::fs::read_to_string("data/distro.toml").unwrap_or_default(),
     )
     .expect("data/distro.toml must parse");
-    let req = backend::adapter::build_request(&cfg, &distro).expect("dry-run config must be valid");
-    serde_json::to_value(req).unwrap()
+    let req = backend::adapter::build_request(&cfg).expect("dry-run config must be valid");
+    serde_json::json!({ "request": req, "distro": distro })
 }
 
 fn run_diag(json: bool) -> ExitCode {

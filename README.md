@@ -1,4 +1,8 @@
-# Sirius
+<p align="center">
+  <img src="data/icons/hicolor/scalable/apps/io.sirius.Installer.svg" alt="Sirius logo" width="160" height="160" />
+</p>
+
+<h1 align="center">Sirius</h1>
 
 **Sirius** is a distro-agnostic diagnostic operating-system installer — Rust + Relm4 +
 GTK4 + libadwaita on the [libreadymade](https://github.com/FyraLabs/readymade) backend.
@@ -15,6 +19,12 @@ GTK4 + libadwaita on the [libreadymade](https://github.com/FyraLabs/readymade) b
   `/etc/sirius/sirius.toml`; no recompile needed.
 - **bootc install** — deploys an OCI image via systemd-repart + bootc, with optional
   LUKS encryption.
+- **Unified storage editor** — choose automatic provisioning or stage a validated
+  GPT layout with create/delete/format/label/mount operations. Manual writes run
+  through UDisks2 only after the final confirmation.
+- **Wi-Fi in the installer** — when a wireless adapter exists, scan and connect to
+  open or WPA/WPA2/WPA3 Personal networks through NetworkManager. The page is omitted
+  on systems without Wi-Fi hardware.
 - **Privilege split** — the unprivileged UI builds an install request; a `pkexec`
   child executes it as root and streams progress back.
 - **Logging** — every install writes a timestamped log to `/tmp/sirius-install-*.log`
@@ -23,7 +33,8 @@ GTK4 + libadwaita on the [libreadymade](https://github.com/FyraLabs/readymade) b
 ## Requirements
 
 - Build: Rust (2021), `gtk4` / `gtk4-devel`, `libadwaita` / `libadwaita-devel`.
-- Runtime (target/live system): `systemd-repart`, `bootc`, `cryptsetup`, `pkexec`/polkit, `mount`.
+- Runtime (target/live system): `systemd-repart`, `bootc`, `cryptsetup`, `pkexec`/polkit,
+  `mount`, UDisks2, NetworkManager, and `lsblk`.
 
 ## Build & run
 
@@ -39,8 +50,9 @@ cargo run --bin sirius                # launch the GTK wizard
 - `crates/sirius-diag` — pure hardware-check + config library (probes, gating, page-toggle config).
 - `crates/sirius-installer` — the GTK wizard binary plus the `diag`, `--dry-run`, and
   (internal) `run-playbook` entry points.
-- `crates/sirius-installer/src/backend/` — the only code that touches libreadymade
-  (adapter, distro descriptor, runner, pkexec spawn) behind a `Progress` boundary.
+- `crates/sirius-installer/src/backend/` — the only code that touches libreadymade,
+  NetworkManager, or UDisks2 (adapter, storage/network services, runner, pkexec spawn)
+  behind explicit request/progress boundaries.
 
 See [`AGENTS.md`](AGENTS.md) for contributor/agent guidance and [`docs/GAPS.md`](docs/GAPS.md)
 for known gaps and TODOs.

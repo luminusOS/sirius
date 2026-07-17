@@ -85,27 +85,47 @@ pub struct DiskInfo {
     pub size_bytes: u64,
 }
 
-/// List candidate target disks via `lsblk -b -d -n -o NAME,SIZE,MODEL`.
+/// List candidate target disks via `lsblk -b -d -n -P -o NAME,SIZE,MODEL,TYPE,RO`.
+/// Keeps only writable whole disks: pseudo block devices (zram, loop, ram,
+/// device-mapper, md, optical) are never valid install targets.
 /// Returns an empty list on error (caller shows "no disks found").
 pub fn list_disks() -> Vec<DiskInfo> {
     let out = std::process::Command::new("lsblk")
-        .args(["-b", "-d", "-n", "-o", "NAME,SIZE,MODEL"])
+        .args(["-b", "-d", "-n", "-P", "-o", "NAME,SIZE,MODEL,TYPE,RO"])
         .output();
     let Ok(out) = out else { return Vec::new() };
     String::from_utf8_lossy(&out.stdout)
         .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            let name = parts.next()?;
-            let size = parts.next()?.parse::<u64>().ok()?;
-            let model = parts.collect::<Vec<_>>().join(" ");
-            Some(DiskInfo {
-                path: format!("/dev/{name}"),
-                model: if model.is_empty() { "Disk".into() } else { model },
-                size_bytes: size,
-            })
-        })
+        .filter_map(parse_lsblk_line)
         .collect()
+}
+
+/// Parse one `lsblk -P` line (`KEY="value" ...`) into a `DiskInfo`, applying
+/// the install-target filter. `None` for filtered-out or malformed lines.
+fn parse_lsblk_line(line: &str) -> Option<DiskInfo> {
+    // -P emits alternating `KEY="`/`value` segments when split on '"'.
+    let mut fields = std::collections::HashMap::new();
+    let mut parts = line.split('"');
+    while let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+        fields.insert(key.trim().trim_end_matches('='), value);
+    }
+
+    let name = fields.get("NAME")?;
+    let size = fields.get("SIZE")?.parse::<u64>().ok()?;
+    let pseudo = ["zram", "loop", "ram", "sr", "fd", "dm-", "md"];
+    if *fields.get("TYPE")? != "disk"
+        || *fields.get("RO")? != "0"
+        || size == 0
+        || pseudo.iter().any(|p| name.starts_with(p))
+    {
+        return None;
+    }
+    let model = fields.get("MODEL").map(|m| m.trim()).unwrap_or_default();
+    Some(DiskInfo {
+        path: format!("/dev/{name}"),
+        model: if model.is_empty() { "Disk".into() } else { model.into() },
+        size_bytes: size,
+    })
 }
 
 #[cfg(test)]
@@ -117,5 +137,37 @@ mod tests {
         // Smoke test: gathering on the CI host must never panic, whatever the hardware.
         let facts = SystemFacts::gather();
         assert_eq!(facts.efi_path, PathBuf::from("/sys/firmware/efi"));
+    }
+
+    #[test]
+    fn lsblk_line_keeps_real_disks() {
+        let d = parse_lsblk_line(
+            r#"NAME="vda" SIZE="68719476736" MODEL="Virtio Block Device" TYPE="disk" RO="0""#,
+        )
+        .unwrap();
+        assert_eq!(d.path, "/dev/vda");
+        assert_eq!(d.model, "Virtio Block Device");
+        assert_eq!(d.size_bytes, 68719476736);
+    }
+
+    #[test]
+    fn lsblk_line_drops_pseudo_devices() {
+        // zram reports TYPE="disk" but is never an install target.
+        for line in [
+            r#"NAME="zram0" SIZE="8589934592" MODEL="" TYPE="disk" RO="0""#,
+            r#"NAME="loop0" SIZE="1234" MODEL="" TYPE="loop" RO="0""#,
+            r#"NAME="sr0" SIZE="2048" MODEL="QEMU DVD-ROM" TYPE="rom" RO="1""#,
+            r#"NAME="sda" SIZE="0" MODEL="Empty Reader" TYPE="disk" RO="0""#,
+            r#"NAME="sdb" SIZE="1024" MODEL="WP Disk" TYPE="disk" RO="1""#,
+        ] {
+            assert!(parse_lsblk_line(line).is_none(), "should drop: {line}");
+        }
+    }
+
+    #[test]
+    fn lsblk_line_defaults_missing_model() {
+        let d = parse_lsblk_line(r#"NAME="nvme0n1" SIZE="512000000000" MODEL="" TYPE="disk" RO="0""#)
+            .unwrap();
+        assert_eq!(d.model, "Disk");
     }
 }

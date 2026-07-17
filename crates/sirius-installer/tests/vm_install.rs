@@ -13,9 +13,10 @@ fn vm_full_install() {
         .expect("set SIRIUS_TEST_DISK to a throwaway block device");
     assert!(disk.starts_with("/dev/"), "refusing non-/dev disk: {disk}");
 
+    // The image and repart layout come from /etc/sirius/distro.toml on the
+    // privileged side (falling back to data/distro.toml when run in-tree).
     let request = format!(
-        r#"{{"bootc_image":"ghcr.io/example/os:latest","repart_dir":"/usr/share/sirius/repart.d",
-            "target_disk":"{disk}","encrypt":false,"tpm":false,"encryption_key":"",
+        r#"{{"target_disk":"{disk}","encrypt":false,"tpm":false,"encryption_key":"",
             "locale":"en_US","keyboard":"us","timezone":"UTC","hostname":"localhost",
             "username":"demo","full_name":"Demo"}}"#
     );
@@ -29,10 +30,18 @@ fn vm_full_install() {
         .expect("spawn runner");
     {
         use std::io::Write;
-        child.stdin.take().unwrap().write_all(request.as_bytes()).unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(request.as_bytes())
+            .unwrap();
     }
     let out = child.wait_with_output().unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("Finished"), "install did not finish: {stdout}");
+    assert!(
+        stdout.contains("Finished"),
+        "install did not finish: {stdout}"
+    );
     assert!(out.status.success());
 }

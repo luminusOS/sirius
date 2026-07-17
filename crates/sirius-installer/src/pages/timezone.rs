@@ -4,7 +4,12 @@ use super::PageOutput;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
-const ZONES: &[&str] = &["America/Sao_Paulo", "America/New_York", "Europe/London", "UTC"];
+const ZONES: &[&str] = &[
+    "America/Sao_Paulo",
+    "America/New_York",
+    "Europe/London",
+    "UTC",
+];
 
 pub struct TimezonePage {
     lang: crate::i18n::Lang,
@@ -43,8 +48,12 @@ impl SimpleComponent for TimezonePage {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        sender.output(PageOutput::SetTimezone(ZONES[0].to_string())).ok();
-        let model = TimezonePage { lang: crate::i18n::Lang::En };
+        sender
+            .output(PageOutput::SetTimezone(ZONES[0].to_string()))
+            .ok();
+        let model = TimezonePage {
+            lang: crate::i18n::Lang::En,
+        };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
@@ -53,7 +62,9 @@ impl SimpleComponent for TimezonePage {
         match msg {
             TimezoneMsg::Chosen(i) => {
                 let zone = ZONES.get(i).copied().unwrap_or("UTC");
-                sender.output(PageOutput::SetTimezone(zone.to_string())).ok();
+                sender
+                    .output(PageOutput::SetTimezone(zone.to_string()))
+                    .ok();
             }
             TimezoneMsg::SetLang(l) => self.lang = l,
         }

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sirius app icon, following the GNOME HIG app-icon guidelines:
+  128x128 canvas, simple geometry, GNOME palette, no text.
+  Concept: Sirius, the brightest star in the night sky, as a guiding
+  star over a horizon — an installer that points the way.
+-->
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- night sky: GNOME dark purples into blue -->
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241f31"/>
+      <stop offset="0.55" stop-color="#1a5fb4"/>
+      <stop offset="1" stop-color="#3584e4"/>
+    </linearGradient>
+    <!-- horizon ground -->
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c71d8"/>
+      <stop offset="1" stop-color="#1a5fb4"/>
+    </linearGradient>
+    <!-- star glow -->
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#99c1f1" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#99c1f1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- main shape: circle, 8px margin -->
+  <circle cx="64" cy="64" r="56" fill="url(#sky)"/>
+
+  <!-- horizon -->
+  <path d="M 12.6 78 A 56 56 0 0 0 115.4 78 A 80 80 0 0 0 12.6 78 Z" fill="url(#ground)"/>
+
+  <!-- small companion stars -->
+  <circle cx="34" cy="34" r="2.5" fill="#99c1f1"/>
+  <circle cx="96" cy="52" r="2" fill="#99c1f1"/>
+  <circle cx="88" cy="26" r="1.6" fill="#62a0ea"/>
+  <circle cx="26" cy="56" r="1.6" fill="#62a0ea"/>
+
+  <!-- Sirius: glow + four-pointed star -->
+  <circle cx="58" cy="46" r="30" fill="url(#glow)"/>
+  <path d="M 58 18
+           C 60.5 36 63 40 76 42.5
+           C 63 47 60.5 51 58 67
+           C 55.5 51 53 47 40 42.5
+           C 53 40 55.5 36 58 18 Z"
+        fill="#ffffff"/>
+
+  <!-- subtle reflection on the horizon -->
+  <rect x="54" y="86" width="8" height="3" rx="1.5" fill="#99c1f1" opacity="0.7"/>
+  <rect x="55.5" y="93" width="5" height="2.4" rx="1.2" fill="#99c1f1" opacity="0.45"/>
+  <rect x="56.5" y="99" width="3" height="2" rx="1" fill="#99c1f1" opacity="0.25"/>
+
+  <!-- rim light, keeps the circle crisp on dark backgrounds -->
+  <circle cx="64" cy="64" r="55.5" fill="none" stroke="#000000" stroke-opacity="0.15"/>
+</svg>

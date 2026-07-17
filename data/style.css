@@ -1,0 +1,69 @@
+.navigation-arrow {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px alpha(black, .18);
+}
+
+.install-pill {
+  min-width: 190px;
+  min-height: 48px;
+  padding: 0 28px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1.05em;
+  box-shadow: 0 8px 24px alpha(@accent_bg_color, .28);
+}
+
+.storage-content {
+  margin: 6px 24px 24px 24px;
+}
+
+.partition-editor-content {
+  margin: 24px;
+}
+
+.storage-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: alpha(@window_fg_color, .10);
+  color: alpha(@window_fg_color, .72);
+  font-size: .85em;
+  font-weight: 600;
+}
+
+.partition-indicator {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 4px;
+}
+
+.partition-size {
+  min-width: 72px;
+}
+
+.disk-map {
+  min-height: 46px;
+  padding: 3px;
+  border-radius: 12px;
+  background: alpha(@window_fg_color, .08);
+}
+
+.partition-segment {
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 700;
+}
+
+.partition-efi { background: #3584e4; }
+.partition-linux { background: #26a269; }
+.partition-swap { background: #cd9309; }
+.partition-ntfs { background: #9141ac; }
+.partition-free { background: #5e5c64; }
+
+.pending-delete {
+  opacity: .55;
+}

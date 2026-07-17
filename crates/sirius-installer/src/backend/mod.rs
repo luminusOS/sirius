@@ -37,15 +37,27 @@
 
 pub mod adapter;
 pub mod distro;
+pub mod network;
 pub mod runner;
 pub mod spawn;
+pub mod storage;
 
 /// Progress reported to the UI, decoupled from libreadymade's `PlaybookProgress`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Progress {
-    Step { fraction: f64, message: String },
+    Step {
+        fraction: f64,
+        message: String,
+    },
+    /// A raw log line (the runner's stderr, where libreadymade traces the
+    /// actual work). Shown in the install log, does not move the bar.
+    Log {
+        line: String,
+    },
     Finished,
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 #[allow(dead_code)]

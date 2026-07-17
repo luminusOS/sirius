@@ -53,8 +53,12 @@ impl SimpleComponent for KeyboardPage {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        sender.output(PageOutput::SetKeyboard(LAYOUTS[0].0.to_string())).ok();
-        let model = KeyboardPage { lang: crate::i18n::Lang::En };
+        sender
+            .output(PageOutput::SetKeyboard(LAYOUTS[0].0.to_string()))
+            .ok();
+        let model = KeyboardPage {
+            lang: crate::i18n::Lang::En,
+        };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
@@ -63,7 +67,9 @@ impl SimpleComponent for KeyboardPage {
         match msg {
             KeyboardMsg::Chosen(i) => {
                 let code = LAYOUTS.get(i).map(|(c, _)| *c).unwrap_or("us");
-                sender.output(PageOutput::SetKeyboard(code.to_string())).ok();
+                sender
+                    .output(PageOutput::SetKeyboard(code.to_string()))
+                    .ok();
             }
             KeyboardMsg::SetLang(l) => self.lang = l,
         }

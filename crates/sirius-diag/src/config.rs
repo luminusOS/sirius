@@ -70,9 +70,7 @@ pub const KNOWN_PAGES: &[&str] = &[
     "network",
     "keyboard",
     "timezone",
-    "disk",
-    "partition",
-    "manual_partition",
+    "storage",
     "user",
     "summary",
     "progress",
@@ -80,7 +78,7 @@ pub const KNOWN_PAGES: &[&str] = &[
 ];
 
 /// Pages that always run and cannot be disabled — you cannot install without them.
-pub const MANDATORY_PAGES: &[&str] = &["progress", "finished"];
+pub const MANDATORY_PAGES: &[&str] = &["storage", "progress", "finished"];
 
 /// The built-in fallback order, used when config is missing or has no `order`.
 pub const DEFAULT_ORDER: &[&str] = KNOWN_PAGES;
@@ -100,12 +98,18 @@ impl PagesConfig {
 
         let mut resolved: Vec<String> = source
             .into_iter()
+            .map(|p| match p.as_str() {
+                "disk" | "partition" | "manual_partition" => "storage".to_string(),
+                _ => p,
+            })
             .filter(|p| KNOWN_PAGES.contains(&p.as_str()))
             .filter(|p| {
-                MANDATORY_PAGES.contains(&p.as_str())
-                    || !self.disabled.iter().any(|d| d == p)
+                MANDATORY_PAGES.contains(&p.as_str()) || !self.disabled.iter().any(|d| d == p)
             })
             .collect();
+
+        let mut seen = std::collections::HashSet::new();
+        resolved.retain(|page| seen.insert(page.clone()));
 
         for m in MANDATORY_PAGES {
             if !resolved.iter().any(|p| p == m) {
@@ -201,7 +205,10 @@ min_ram_gib = 3
             disabled: vec!["manual_partition".into()],
         };
         let resolved = pages.resolve();
-        assert_eq!(resolved, vec!["welcome", "summary", "progress", "finished"]);
+        assert_eq!(
+            resolved,
+            vec!["welcome", "storage", "summary", "progress", "finished"]
+        );
     }
 
     #[test]
@@ -213,6 +220,7 @@ min_ram_gib = 3
         let resolved = pages.resolve();
         assert!(resolved.contains(&"progress".to_string()));
         assert!(resolved.contains(&"finished".to_string()));
+        assert!(resolved.contains(&"storage".to_string()));
     }
 
     #[test]
@@ -228,6 +236,24 @@ min_ram_gib = 3
     fn resolve_empty_order_uses_default() {
         let pages = PagesConfig::default();
         assert_eq!(pages.resolve(), DEFAULT_ORDER);
+    }
+
+    #[test]
+    fn legacy_partition_pages_collapse_to_storage_once() {
+        let pages = PagesConfig {
+            order: vec![
+                "disk".into(),
+                "welcome".into(),
+                "partition".into(),
+                "manual_partition".into(),
+                "storage".into(),
+            ],
+            disabled: vec![],
+        };
+        assert_eq!(
+            pages.resolve(),
+            vec!["storage", "welcome", "progress", "finished"]
+        );
     }
 
     #[test]

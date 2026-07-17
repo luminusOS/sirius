@@ -1,0 +1,19 @@
+[pages]
+order = [
+  "welcome",
+  "diagnostics",
+  "network",
+  "keyboard",
+  "timezone",
+  "storage",
+  "user",
+  "summary",
+  "progress",
+  "finished",
+]
+disabled = []
+
+[diagnostics]
+require = ["uefi", "ram", "disk_space"]
+warn = ["secure_boot", "network", "virt"]
+min_ram_gib = 2
