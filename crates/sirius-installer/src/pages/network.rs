@@ -176,15 +176,12 @@ fn scan_in_background(sender: ComponentSender<NetworkPage>) {
     std::thread::spawn(move || sender.input(NetworkMsg::Loaded(scan_wifi())));
 }
 
-/// Header text, applied both in `init` and on every `update_view`: gettext
-/// resolves at call time, so re-applying on the `Retranslate` nudge is what
-/// re-renders the header in the new language. One place, no drift between
-/// the two call sites.
 fn apply_header(root: &adw::StatusPage) {
-    root.set_title(&gettext("Network"));
-    root.set_description(Some(&gettext(
-        "Connect to a network. A connection is optional but recommended.",
-    )));
+    super::status_header(
+        root,
+        &gettext("Network"),
+        &gettext("Connect to a network. A connection is optional but recommended."),
+    );
 }
 
 fn show_password_dialog(

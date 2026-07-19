@@ -13,6 +13,16 @@ pub mod user;
 pub mod welcome;
 
 use crate::config_model::{InstallType, PartitionPlan, UserAccount};
+use relm4::adw;
+
+/// Set a status page's translated header. Pages call this both in `init` and
+/// on every `update_view`: gettext resolves at call time, so re-applying on
+/// the `Retranslate` nudge is what re-renders the header in the new language.
+/// One place, no drift between the two call sites.
+pub(crate) fn status_header(root: &adw::StatusPage, title: &str, description: &str) {
+    root.set_title(title);
+    root.set_description(Some(description));
+}
 
 /// Storage choices collected by the storage page.
 ///

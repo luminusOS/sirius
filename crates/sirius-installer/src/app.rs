@@ -3,7 +3,7 @@
 mod pages;
 mod state;
 
-use self::pages::PageControllers;
+use self::pages::{IMPLEMENTED_PAGES, PageControllers};
 use self::state::{StateEffect, WizardState};
 use crate::pages::PageOutput;
 use crate::pages::diagnostics::DiagnosticsInit;
@@ -14,20 +14,6 @@ use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 use sirius_diag::config::CONFIG_PATH;
 use sirius_diag::{SiriusConfig, SystemFacts, is_blocked, run_all_checks_with_config};
 use std::path::Path;
-
-/// Page ids that actually have mounted widgets in the Stack.
-const IMPLEMENTED_PAGES: &[&str] = &[
-    "welcome",
-    "diagnostics",
-    "network",
-    "keyboard",
-    "timezone",
-    "storage",
-    "user",
-    "summary",
-    "progress",
-    "finished",
-];
 
 pub struct AppModel {
     state: WizardState,

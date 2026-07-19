@@ -67,15 +67,12 @@ pub struct SummaryPage {
     last_cfg: Option<InstallConfig>,
 }
 
-/// Header text, applied both in `init` and on every `update_view`: gettext
-/// resolves at call time, so re-applying on the `Retranslate` nudge is what
-/// re-renders the header in the new language. One place, no drift between
-/// the two call sites.
 fn apply_header(root: &adw::StatusPage) {
-    root.set_title(&gettext("Ready to install"));
-    root.set_description(Some(&gettext(
-        "Review your choices before writing changes to disk.",
-    )));
+    super::status_header(
+        root,
+        &gettext("Ready to install"),
+        &gettext("Review your choices before writing changes to disk."),
+    );
 }
 
 #[derive(Debug)]

@@ -86,13 +86,10 @@ impl SimpleComponent for DiagnosticsPage {
     }
 }
 
-/// Header text, applied both in `init` and on every `update_view`: gettext
-/// resolves at call time, so re-applying on the `Retranslate` nudge is what
-/// re-renders the header in the new language. One place, no drift between
-/// the two call sites.
 fn apply_header(root: &adw::StatusPage) {
-    root.set_title(&gettext("System compatibility"));
-    root.set_description(Some(&gettext(
-        "Sirius checked your hardware before installing.",
-    )));
+    super::status_header(
+        root,
+        &gettext("System compatibility"),
+        &gettext("Sirius checked your hardware before installing."),
+    );
 }

@@ -15,7 +15,6 @@ sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 clap = { version = "4", features = ["derive"] }
 relm4 = { version = "0.10", features = ["libadwaita", "gnome_45"] }
 gettext-rs = { version = "0.7", features = ["gettext-system"] }
-gtk4 = { version = "0.10", package = "gtk4" }
 adw = { version = "0.8", package = "libadwaita", features = ["v1_5"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
