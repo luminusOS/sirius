@@ -245,10 +245,10 @@ impl PartitionDraft {
                 offset_bytes: other_offset,
                 ..
             } = operation
+                && current != id
+                && *other_offset > offset_bytes
             {
-                if current != id && *other_offset > offset_bytes {
-                    bound = bound.min(*other_offset);
-                }
+                bound = bound.min(*other_offset);
             }
         }
         bound.saturating_sub(offset_bytes)
@@ -351,10 +351,10 @@ pub fn remaining_region(
                 size_bytes,
                 ..
             } = operation
+                && *offset_bytes >= base.offset_bytes
+                && *offset_bytes < end
             {
-                if *offset_bytes >= base.offset_bytes && *offset_bytes < end {
-                    cursor = cursor.max(offset_bytes.saturating_add(*size_bytes));
-                }
+                cursor = cursor.max(offset_bytes.saturating_add(*size_bytes));
             }
         }
     }

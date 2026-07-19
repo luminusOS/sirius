@@ -3,6 +3,7 @@ name = "sirius-installer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Sirius, a distro-agnostic diagnostic operating-system installer"
 
 [[bin]]
 name = "sirius"

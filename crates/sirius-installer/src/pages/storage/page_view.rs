@@ -70,15 +70,15 @@ pub(super) fn build(state: PageView<'_>, sender: &ComponentSender<StoragePage>) 
                 .draft_error
                 .map(str::to_string)
                 .or_else(|| state.draft.and_then(|d| d.validate(state.uefi).err()));
-            if !state.editor_open {
-                if let Some(error) = error {
-                    let warning = gtk::Label::new(Some(&error));
-                    warning.add_css_class("error");
-                    warning.set_halign(gtk::Align::Start);
-                    warning.set_margin_start(12);
-                    warning.set_wrap(true);
-                    content.append(&warning);
-                }
+            if !state.editor_open
+                && let Some(error) = error
+            {
+                let warning = gtk::Label::new(Some(&error));
+                warning.add_css_class("error");
+                warning.set_halign(gtk::Align::Start);
+                warning.set_margin_start(12);
+                warning.set_wrap(true);
+                content.append(&warning);
             }
         } else {
             content.append(&automatic_section(&state, sender));
@@ -168,13 +168,13 @@ fn disk_selector(
     // actually grouped with another one; a lone entry renders as a square
     // checkbox otherwise. A single-disk system is the common case, so pair
     // the sole radio with an invisible anchor purely to get the radio look.
-    if available.len() == 1 {
-        if let Some((row, radio)) = solo {
-            let anchor = gtk::CheckButton::new();
-            anchor.set_visible(false);
-            anchor.set_group(Some(&radio));
-            row.add_suffix(&anchor);
-        }
+    if available.len() == 1
+        && let Some((row, radio)) = solo
+    {
+        let anchor = gtk::CheckButton::new();
+        anchor.set_visible(false);
+        anchor.set_group(Some(&radio));
+        row.add_suffix(&anchor);
     }
 
     group
@@ -288,18 +288,17 @@ fn automatic_section(state: &PageView<'_>, sender: &ComponentSender<StoragePage>
     if state.encrypt
         && (!state.encryption_passphrase.is_empty()
             || !state.encryption_passphrase_confirm.is_empty())
-    {
-        if let Err(error) = crate::config_model::validate_encryption_passphrase(
+        && let Err(error) = crate::config_model::validate_encryption_passphrase(
             state.encryption_passphrase,
             state.encryption_passphrase_confirm,
-        ) {
-            let hint = gtk::Label::new(Some(&error));
-            hint.add_css_class("error");
-            hint.set_halign(gtk::Align::Start);
-            hint.set_margin_start(12);
-            hint.set_wrap(true);
-            container.append(&hint);
-        }
+        )
+    {
+        let hint = gtk::Label::new(Some(&error));
+        hint.add_css_class("error");
+        hint.set_halign(gtk::Align::Start);
+        hint.set_margin_start(12);
+        hint.set_wrap(true);
+        container.append(&hint);
     }
 
     container.append(&erase_notice());

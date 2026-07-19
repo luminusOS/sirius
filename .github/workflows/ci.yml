@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Install build dependencies
         run: |
-          dnf install -y git gcc gtk4-devel libadwaita-devel pkgconf-pkg-config \
+          dnf install -y git gcc clang gtk4-devel libadwaita-devel pkgconf-pkg-config \
             rust cargo clippy rustfmt
 
       - name: Checkout
@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Install build dependencies
         run: |
-          dnf install -y git gcc gtk4-devel libadwaita-devel pkgconf-pkg-config \
+          dnf install -y git gcc clang gtk4-devel libadwaita-devel pkgconf-pkg-config \
             rust cargo rpm-build
 
       - name: Checkout

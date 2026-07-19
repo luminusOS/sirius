@@ -114,11 +114,11 @@ pub fn run_install<F: FnMut(Progress)>(
     let status = child.wait()?;
     if !status.success() {
         let mut message = explain_exit(status.code(), via_pkexec);
-        if let Some(tail) = stderr_tail.and_then(|h| h.join().ok()) {
-            if !tail.is_empty() {
-                message.push_str("\n--- stderr ---\n");
-                message.push_str(&tail.into_iter().collect::<Vec<_>>().join("\n"));
-            }
+        if let Some(tail) = stderr_tail.and_then(|h| h.join().ok())
+            && !tail.is_empty()
+        {
+            message.push_str("\n--- stderr ---\n");
+            message.push_str(&tail.into_iter().collect::<Vec<_>>().join("\n"));
         }
         on_progress(Progress::Error { message });
     }
