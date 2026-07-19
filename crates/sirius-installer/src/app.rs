@@ -8,6 +8,7 @@ use self::state::{StateEffect, WizardState};
 use crate::pages::diagnostics::DiagnosticsInit;
 use crate::pages::progress::ProgressMsg;
 use crate::pages::PageOutput;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 use sirius_diag::config::CONFIG_PATH;
@@ -67,7 +68,7 @@ impl SimpleComponent for AppModel {
                         set_icon_name: "utilities-terminal-symbolic",
                         add_css_class: "flat",
                         #[watch]
-                        set_tooltip_text: Some(crate::i18n::tr(model.state.lang(), "nav.terminal")),
+                        set_tooltip_text: Some(gettext("Open terminal").as_str()),
                         connect_clicked => AppMsg::OpenTerminal,
                     },
 
@@ -185,9 +186,12 @@ impl SimpleComponent for AppModel {
                 w.set_halign(gtk::Align::Fill);
                 w.set_valign(gtk::Align::Fill);
                 // Keep page content clear of the overlay navigation arrows and
-                // visually centered at every step of the carousel.
-                w.set_margin_start(72);
-                w.set_margin_end(72);
+                // visually centered at every step of the carousel. The progress
+                // page shows neither arrow (Back hides once the install starts,
+                // Next is hidden on it), so the margins would be dead space.
+                let side_margin = if id == "progress" { 0 } else { 72 };
+                w.set_margin_start(side_margin);
+                w.set_margin_end(side_margin);
                 widgets.carousel.append(&w);
                 model.page_widgets.insert(id.clone(), w.clone());
             }
@@ -314,38 +318,32 @@ impl AppModel {
 
     /// Modal "this will erase the disk" gate before leaving the summary page.
     fn confirm_install(&self, sender: &ComponentSender<Self>) {
-        let lang = self.state.lang();
         let config = self.state.config();
-        let mut body = crate::i18n::tr(
-            lang,
+        let mut body = gettext(
             if matches!(
                 config.install_type,
                 Some(crate::config_model::InstallType::Manual)
             ) {
-                "confirm.body.manual"
+                "The staged partition changes will now be written to disk and Sirius will be installed. Formatted or deleted data cannot be recovered."
             } else {
-                "confirm.body"
+                "All data on the selected disk will be permanently erased and the system will be installed. This cannot be undone."
             },
-        )
-        .to_string();
+        );
         if let Some(disk) = &config.destination_disk {
             let disk = config
                 .destination_disk_name
                 .as_deref()
                 .filter(|name| !name.trim().is_empty())
                 .unwrap_or(disk);
-            body.push_str(&format!(
-                "\n\n{}: {disk}",
-                crate::i18n::tr(lang, "summary.disk")
-            ));
+            body.push_str(&format!("\n\n{}: {disk}", gettext("Disk")));
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading(crate::i18n::tr(lang, "confirm.heading"))
+            .heading(gettext("Confirm installation"))
             .body(body)
             .build();
-        dialog.add_response("cancel", crate::i18n::tr(lang, "confirm.cancel"));
-        dialog.add_response("install", crate::i18n::tr(lang, "confirm.install"));
+        dialog.add_response("cancel", &gettext("Cancel"));
+        dialog.add_response("install", &gettext("Erase disk and install"));
         dialog.set_response_appearance("install", adw::ResponseAppearance::Destructive);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
@@ -369,7 +367,7 @@ impl AppModel {
     fn apply_page_output(&mut self, out: PageOutput) {
         match self.state.apply(out) {
             StateEffect::None => {}
-            StateEffect::LanguageChanged(lang) => self.broadcast_lang(lang),
+            StateEffect::LanguageChanged => self.pages.retranslate(),
             StateEffect::PageChanged => self.page_changed(),
             StateEffect::InstallRequested => {
                 unreachable!("handled by AppModel::update")
@@ -382,9 +380,5 @@ impl AppModel {
         if self.state.current_page() == "summary" {
             self.pages.show_summary(self.state.config().clone());
         }
-    }
-
-    fn broadcast_lang(&self, lang: crate::i18n::Lang) {
-        self.pages.set_lang(lang);
     }
 }

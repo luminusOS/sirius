@@ -5,14 +5,13 @@
 //! may advance.
 
 use crate::config_model::{InstallConfig, InstallType};
-use crate::i18n::Lang;
 use crate::navigator::Navigator;
 use crate::pages::{PageOutput, StorageSelection};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateEffect {
     None,
-    LanguageChanged(Lang),
+    LanguageChanged,
     PageChanged,
     InstallRequested,
 }
@@ -22,7 +21,10 @@ pub struct WizardState {
     nav: Navigator,
     diagnostics_blocked: bool,
     uefi: bool,
-    lang: Lang,
+    /// UI locale currently fed to gettext via LANGUAGE. Starts empty so the
+    /// welcome page's initial SetLocale pins LANGUAGE (and thus the UI) to its
+    /// default selection instead of whatever the environment advertises.
+    ui_locale: String,
 }
 
 impl WizardState {
@@ -32,7 +34,7 @@ impl WizardState {
             nav: Navigator::new(pages),
             diagnostics_blocked,
             uefi,
-            lang: Lang::default(),
+            ui_locale: String::new(),
         }
     }
 
@@ -50,10 +52,6 @@ impl WizardState {
 
     pub fn is_last(&self) -> bool {
         self.nav.is_last()
-    }
-
-    pub fn lang(&self) -> Lang {
-        self.lang
     }
 
     pub fn install_started(&self) -> bool {
@@ -87,13 +85,16 @@ impl WizardState {
     pub fn apply(&mut self, output: PageOutput) -> StateEffect {
         match output {
             PageOutput::SetLocale(locale) => {
-                let lang = Lang::from_locale(&locale);
-                self.config.locale = Some(locale);
-                if lang == self.lang {
-                    StateEffect::None
+                let changed = locale != self.ui_locale;
+                self.config.locale = Some(locale.clone());
+                if changed {
+                    self.ui_locale = locale.clone();
+                    // glibc gettext consults LANGUAGE on every lookup, so setting
+                    // it here plus re-rendering the pages switches the UI language.
+                    std::env::set_var("LANGUAGE", locale);
+                    StateEffect::LanguageChanged
                 } else {
-                    self.lang = lang;
-                    StateEffect::LanguageChanged(lang)
+                    StateEffect::None
                 }
             }
             PageOutput::SetKeyboard(keyboard) => {
@@ -126,10 +127,15 @@ impl WizardState {
         self.config.install_type = Some(selection.install_type);
         self.config.encrypt = selection.encrypt;
         self.config.tpm = selection.tpm;
+        self.config.encryption_passphrase = selection.encryption_passphrase;
+        self.config.encryption_passphrase_confirm = selection.encryption_passphrase_confirm;
         self.config.partition_plan = selection.partition_plan;
     }
 
     fn storage_is_valid(&self) -> bool {
+        if self.config.encrypt && self.config.validate_encryption().is_err() {
+            return false;
+        }
         self.config.destination_disk.is_some()
             && match self.config.install_type {
                 Some(InstallType::Manual) => self
@@ -191,8 +197,29 @@ mod tests {
             install_type: InstallType::WholeDisk,
             encrypt: false,
             tpm: false,
+            encryption_passphrase: String::new(),
+            encryption_passphrase_confirm: String::new(),
             partition_plan: None,
         }));
+        assert!(state.can_proceed());
+    }
+
+    #[test]
+    fn encrypted_selection_requires_a_valid_passphrase() {
+        let mut state = state_at("storage", false);
+        let selection = |passphrase: &str, confirm: &str| StorageSelection {
+            path: "/dev/sda".into(),
+            name: "Disk".into(),
+            install_type: InstallType::Encrypted,
+            encrypt: true,
+            tpm: false,
+            encryption_passphrase: passphrase.into(),
+            encryption_passphrase_confirm: confirm.into(),
+            partition_plan: None,
+        };
+        state.apply(PageOutput::SetStorage(selection("hunter2hunter", "typo")));
+        assert!(!state.can_proceed());
+        state.apply(PageOutput::SetStorage(selection("hunter2hunter", "hunter2hunter")));
         assert!(state.can_proceed());
     }
 
@@ -205,6 +232,8 @@ mod tests {
             install_type: InstallType::Manual,
             encrypt: false,
             tpm: false,
+            encryption_passphrase: String::new(),
+            encryption_passphrase_confirm: String::new(),
             partition_plan: Some(valid_bios_plan()),
         };
         state.apply(PageOutput::SetStorage(selection));

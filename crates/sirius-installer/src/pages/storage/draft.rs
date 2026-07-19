@@ -367,8 +367,7 @@ pub fn remaining_region(
 fn operation_targets(operation: &PartitionOperation, target: &PartitionRef) -> bool {
     matches!(operation,
         PartitionOperation::Delete { target: current }
-        | PartitionOperation::Format { target: current, .. }
-        | PartitionOperation::SetLabel { target: current, .. } if current == target)
+        | PartitionOperation::Format { target: current, .. } if current == target)
 }
 
 fn gpt_type(spec: &PartitionSpec) -> &'static str {

@@ -4,7 +4,6 @@ mod app;
 mod backend;
 mod config_model;
 mod gui;
-mod i18n;
 mod logging;
 mod navigator;
 mod pages;
@@ -41,8 +40,11 @@ enum Command {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    // Handle the privileged subprocess entry point before any logging or GUI setup.
+    // Handle the privileged subprocess entry point before any logging or GUI
+    // setup — but AFTER gettext, so runner progress/error lines resolve
+    // against the same catalogs (LANGUAGE is pinned from the request there).
     if matches!(cli.command, Some(Command::RunPlaybook)) {
+        init_gettext();
         return ExitCode::from(backend::runner::run() as u8);
     }
     let _log = logging::init();
@@ -52,13 +54,37 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     match cli.command {
-        Some(Command::Diag { json }) => run_diag(json),
+        Some(Command::Diag { json }) => {
+            init_gettext();
+            run_diag(json)
+        }
         Some(Command::RunPlaybook) => unreachable!("handled above"),
         None => {
+            init_gettext();
             gui::run();
             ExitCode::SUCCESS
         }
     }
+}
+
+/// Set up GNU gettext before any window exists: locale from the environment,
+/// UTF-8 catalogs, and the `sirius` textdomain. Runtime language switches are
+/// done later via the `LANGUAGE` variable (see `app::state`).
+fn init_gettext() {
+    use gettextrs::{
+        bind_textdomain_codeset, bindtextdomain, setlocale, textdomain, LocaleCategory,
+    };
+    setlocale(LocaleCategory::LcAll, "");
+    bind_textdomain_codeset("sirius", "UTF-8").expect("UTF-8 codeset must be settable");
+    // Installed systems ship the catalogs under /usr/share/locale; dev runs
+    // use the build-script-compiled ones from the target directory instead.
+    let dir = if Path::new("/usr/share/locale/pt_BR/LC_MESSAGES/sirius.mo").exists() {
+        "/usr/share/locale"
+    } else {
+        env!("SIRIUS_DEV_LOCALEDIR")
+    };
+    bindtextdomain("sirius", dir).expect("sirius textdomain must bind");
+    textdomain("sirius").expect("sirius textdomain must be selected");
 }
 
 fn sirius_installer_dry_run() -> serde_json::Value {
@@ -73,6 +99,8 @@ fn sirius_installer_dry_run() -> serde_json::Value {
         partition_plan: None,
         encrypt: false,
         tpm: false,
+        encryption_passphrase: String::new(),
+        encryption_passphrase_confirm: String::new(),
         user: UserAccount {
             full_name: "Demo User".into(),
             username: "demo".into(),

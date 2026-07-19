@@ -1,19 +1,20 @@
 //! Keyboard layout page: lets the user pick a keyboard layout and test it.
 
 use super::PageOutput;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 const LAYOUTS: &[(&str, &str)] = &[("us", "English (US)"), ("br", "Portuguese (Brazil)")];
 
-pub struct KeyboardPage {
-    lang: crate::i18n::Lang,
-}
+pub struct KeyboardPage;
 
 #[derive(Debug)]
 pub enum KeyboardMsg {
     Chosen(usize),
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 #[relm4::component(pub)]
@@ -26,7 +27,7 @@ impl SimpleComponent for KeyboardPage {
         adw::StatusPage {
             set_icon_name: Some("input-keyboard-symbolic"),
             #[watch]
-            set_title: crate::i18n::tr(model.lang, "keyboard.title"),
+            set_title: gettext("Keyboard layout").as_str(),
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
@@ -42,7 +43,7 @@ impl SimpleComponent for KeyboardPage {
                 },
                 gtk::Entry {
                     #[watch]
-                    set_placeholder_text: Some(crate::i18n::tr(model.lang, "keyboard.test")),
+                    set_placeholder_text: Some(gettext("Type here to test your layout").as_str()),
                 },
             },
         }
@@ -56,9 +57,7 @@ impl SimpleComponent for KeyboardPage {
         sender
             .output(PageOutput::SetKeyboard(LAYOUTS[0].0.to_string()))
             .ok();
-        let model = KeyboardPage {
-            lang: crate::i18n::Lang::En,
-        };
+        let model = KeyboardPage;
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
@@ -71,7 +70,7 @@ impl SimpleComponent for KeyboardPage {
                     .output(PageOutput::SetKeyboard(code.to_string()))
                     .ok();
             }
-            KeyboardMsg::SetLang(l) => self.lang = l,
+            KeyboardMsg::Retranslate => {}
         }
     }
 }

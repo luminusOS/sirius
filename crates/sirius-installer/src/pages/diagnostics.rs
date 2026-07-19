@@ -4,6 +4,7 @@
 //! wizard state owns navigation gating.
 
 use super::PageOutput;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 use sirius_diag::config::DiagnosticsConfig;
@@ -14,13 +15,13 @@ pub struct DiagnosticsInit {
     pub config: DiagnosticsConfig,
 }
 
-pub struct DiagnosticsPage {
-    lang: crate::i18n::Lang,
-}
+pub struct DiagnosticsPage {}
 
 #[derive(Debug)]
 pub enum DiagnosticsMsg {
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 pub struct DiagnosticsPageWidgets {
@@ -43,9 +44,7 @@ impl SimpleComponent for DiagnosticsPage {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let lang = crate::i18n::Lang::En;
-        root.set_title(crate::i18n::tr(lang, "diagnostics.title"));
-        root.set_description(Some(crate::i18n::tr(lang, "diagnostics.desc")));
+        apply_header(&root);
 
         let group = adw::PreferencesGroup::new();
 
@@ -70,7 +69,7 @@ impl SimpleComponent for DiagnosticsPage {
 
         root.set_child(Some(&group));
 
-        let model = DiagnosticsPage { lang };
+        let model = DiagnosticsPage {};
         let widgets = DiagnosticsPageWidgets { root };
 
         ComponentParts { model, widgets }
@@ -78,16 +77,22 @@ impl SimpleComponent for DiagnosticsPage {
 
     fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         match msg {
-            DiagnosticsMsg::SetLang(l) => self.lang = l,
+            DiagnosticsMsg::Retranslate => {}
         }
     }
 
     fn update_view(&self, widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {
-        widgets
-            .root
-            .set_title(crate::i18n::tr(self.lang, "diagnostics.title"));
-        widgets
-            .root
-            .set_description(Some(crate::i18n::tr(self.lang, "diagnostics.desc")));
+        apply_header(&widgets.root);
     }
+}
+
+/// Header text, applied both in `init` and on every `update_view`: gettext
+/// resolves at call time, so re-applying on the `Retranslate` nudge is what
+/// re-renders the header in the new language. One place, no drift between
+/// the two call sites.
+fn apply_header(root: &adw::StatusPage) {
+    root.set_title(&gettext("System compatibility"));
+    root.set_description(Some(&gettext(
+        "Sirius checked your hardware before installing.",
+    )));
 }

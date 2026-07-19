@@ -6,6 +6,7 @@ mod bento;
 
 use super::PageOutput;
 use crate::backend::distro::Bento;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
@@ -27,7 +28,6 @@ impl ProgressPhase {
 }
 
 pub struct ProgressPage {
-    lang: crate::i18n::Lang,
     log: gtk::TextBuffer,
     phase: ProgressPhase,
     has_bentos: bool,
@@ -58,7 +58,9 @@ pub enum ProgressMsg {
         message: String,
     },
     Done,
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 #[relm4::component(pub)]
@@ -77,20 +79,36 @@ impl SimpleComponent for ProgressPage {
             adw::StatusPage {
                 set_vexpand: true,
                 #[watch]
-                set_title: crate::i18n::tr(
-                    model.lang,
-                    if model.phase.is_failed() { "progress.failed.title" } else { "progress.title" },
-                ),
+                set_title: if model.phase.is_failed() {
+                    gettext("Installation failed")
+                } else {
+                    gettext("Installing the system")
+                }
+                .as_str(),
                 #[watch]
                 set_description: model
                     .phase.is_failed()
-                    .then(|| crate::i18n::tr(model.lang, "progress.failed.desc")),
+                    .then(|| {
+                        gettext(
+                            "Something went wrong during installation. Check the log below for details. No changes were finished — you can reboot and try again.",
+                        )
+                    })
+                    .as_deref(),
                 #[watch]
                 set_icon_name: model.phase.is_failed().then_some("dialog-error-symbolic"),
                 #[wrap(Some)]
                 set_child = &gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 18,
+
+                    // Visible activity while the install runs; hidden on
+                    // failure (the error icon takes over) and when done.
+                    #[name = "spinner"]
+                    gtk::Spinner {
+                        set_halign: gtk::Align::Center,
+                        #[watch]
+                        set_visible: matches!(model.phase, ProgressPhase::Running { .. }),
+                    },
 
                     // Bentos stay in the centered StatusPage content.
                     #[name = "bento_box"]
@@ -154,7 +172,7 @@ impl SimpleComponent for ProgressPage {
                     set_valign: gtk::Align::Center,
                     add_css_class: "flat",
                     #[watch]
-                    set_tooltip_text: Some(crate::i18n::tr(model.lang, "progress.logs")),
+                    set_tooltip_text: Some(gettext("Show install log").as_str()),
                 },
             },
         }
@@ -167,7 +185,6 @@ impl SimpleComponent for ProgressPage {
     ) -> ComponentParts<Self> {
         let log = gtk::TextBuffer::new(None);
         let mut model = ProgressPage {
-            lang: crate::i18n::Lang::En,
             log,
             phase: ProgressPhase::Idle,
             has_bentos: !bentos.is_empty(),
@@ -178,6 +195,9 @@ impl SimpleComponent for ProgressPage {
         let widgets = view_output!();
 
         bento::append_cards(&widgets.bento_box, &bentos);
+        // Started once; visibility (driven by the phase) decides whether it
+        // actually animates on screen.
+        widgets.spinner.start();
 
         if bentos.is_empty() {
             // No cards above: show the log permanently.
@@ -246,6 +266,7 @@ impl SimpleComponent for ProgressPage {
                 self.append_log(&format!("ERROR: {message}"));
                 if let Some(bar) = &self.bar {
                     bar.add_css_class("error");
+                    bar.set_show_text(false);
                 }
                 // Bring the log into view so the error is impossible to miss.
                 if let Some(toggle) = &self.log_toggle {
@@ -259,11 +280,13 @@ impl SimpleComponent for ProgressPage {
                 self.phase = ProgressPhase::Finished;
                 if let Some(bar) = &self.bar {
                     bar.set_fraction(1.0);
+                    bar.set_show_text(true);
+                    bar.set_text(Some("100%"));
                 }
                 self.append_log("Done.");
                 sender.output(PageOutput::RequestNext).ok();
             }
-            ProgressMsg::SetLang(l) => self.lang = l,
+            ProgressMsg::Retranslate => {}
         }
     }
 }
@@ -274,8 +297,9 @@ impl ProgressPage {
         self.log.insert(&mut end, &format!("{line}\n"));
     }
 
-    /// Real fractions (post-install modules) drive the bar; everything else
-    /// pulses it so there is always visible motion while work streams in.
+    /// Real fractions (post-install modules) drive the bar and show a
+    /// percentage; everything else pulses it so there is always visible
+    /// motion while work streams in.
     fn advance_bar(&mut self, fraction: f64) {
         let Some(bar) = &self.bar else { return };
         if matches!(self.phase, ProgressPhase::Failed | ProgressPhase::Finished) {
@@ -285,11 +309,17 @@ impl ProgressPage {
             self.phase = ProgressPhase::Running {
                 indeterminate: false,
             };
-            bar.set_fraction(fraction.clamp(0.0, 1.0));
+            let clamped = fraction.clamp(0.0, 1.0);
+            bar.set_fraction(clamped);
+            bar.set_show_text(true);
+            bar.set_text(Some(&format!("{:.0}%", clamped * 100.0)));
         } else {
             self.phase = ProgressPhase::Running {
                 indeterminate: true,
             };
+            // Pulsing with a stale percentage painted on the bar reads as a
+            // stuck install — text only while genuinely determinate.
+            bar.set_show_text(false);
             bar.pulse();
         }
     }

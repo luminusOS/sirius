@@ -1,15 +1,28 @@
-<p align="center">
-  <img src="data/icons/hicolor/scalable/apps/io.sirius.Installer.svg" alt="Sirius logo" width="160" height="160" />
-</p>
+<div align="center">
 
-<h1 align="center">Sirius</h1>
+<img src="data/icons/hicolor/scalable/apps/io.sirius.Installer.svg" alt="Sirius logo" width="160" height="160" />
 
-**Sirius** is a distro-agnostic diagnostic operating-system installer — Rust + Relm4 +
-GTK4 + libadwaita on the [libreadymade](https://github.com/FyraLabs/readymade) backend.
+# Sirius
 
-> Sirius (named for the brightest star in the night sky) was originally created for
-> **LuminusOS**, but it is a **distro-agnostic** installer: point it at any bootc/OCI-based
-> distribution by supplying `/etc/sirius/distro.toml` and a systemd-repart layout.
+**Guided by the brightest star.**
+
+A distro-agnostic diagnostic operating-system installer, built in Rust with GTK4 and Libadwaita.
+
+[LuminusOS](https://luminusos.org) · [Report a bug](https://github.com/luminusOS/sirius/issues)
+
+</div>
+
+---
+
+Sirius takes its name from the brightest star in the night sky. It was
+originally created for **LuminusOS**, but it is a **distro-agnostic**
+installer: point it at any bootc/OCI-based distribution by supplying
+`/etc/sirius/distro.toml` and a systemd-repart layout — no recompile needed.
+
+It probes the machine before anything is written, walks the user through a
+toggleable wizard, and deploys the system through the
+[libreadymade](https://github.com/FyraLabs/readymade) backend: systemd-repart
+for partitioning, bootc for the image, with optional LUKS encryption.
 
 ## Features
 
@@ -27,32 +40,29 @@ GTK4 + libadwaita on the [libreadymade](https://github.com/FyraLabs/readymade) b
   on systems without Wi-Fi hardware.
 - **Privilege split** — the unprivileged UI builds an install request; a `pkexec`
   child executes it as root and streams progress back.
+- **Translated UI** — English and Brazilian Portuguese, switchable live from the
+  welcome page.
 - **Logging** — every install writes a timestamped log to `/tmp/sirius-install-*.log`
   and shows live progress in the UI.
 
-## Requirements
+## Documentation
 
-- Build: Rust (2021), `gtk4` / `gtk4-devel`, `libadwaita` / `libadwaita-devel`.
-- Runtime (target/live system): `systemd-repart`, `bootc`, `cryptsetup`, `pkexec`/polkit,
-  `mount`, UDisks2, NetworkManager, and `lsblk`.
+- [INSTALL.md](INSTALL.md) — shipping Sirius in a distribution ISO: install paths,
+  the polkit policy, the distro descriptor and repart layout, and runtime requirements.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup, verification, the VM
+  install test, development aids, and the translation workflow.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — crate boundaries, the backend boundary,
+  wizard flow, the storage subsystem, and internationalization diagrams.
+- [docs/GAPS.md](docs/GAPS.md) — known gaps and TODOs.
 
-## Build & run
+## Built with
 
-```sh
-cargo build
-cargo run --bin sirius -- diag        # hardware compatibility report (text or --json)
-cargo run --bin sirius -- --dry-run   # build & print the install request, no install
-cargo run --bin sirius                # launch the GTK wizard
-```
+[Rust](https://www.rust-lang.org/) · [GTK4](https://gtk.org/) ·
+[Libadwaita](https://gitlab.gnome.org/GNOME/libadwaita) ·
+[Relm4](https://relm4.org/) · [libreadymade](https://github.com/FyraLabs/readymade) ·
+[bootc](https://github.com/bootc-dev/bootc)
 
-## Architecture
+## Acknowledgements
 
-- `crates/sirius-diag` — pure hardware-check + config library (probes, gating, page-toggle config).
-- `crates/sirius-installer` — the GTK wizard binary plus the `diag`, `--dry-run`, and
-  (internal) `run-playbook` entry points.
-- `crates/sirius-installer/src/backend/` — the only code that touches libreadymade,
-  NetworkManager, or UDisks2 (adapter, storage/network services, runner, pkexec spawn)
-  behind explicit request/progress boundaries.
-
-See [`AGENTS.md`](AGENTS.md) for contributor/agent guidance and [`docs/GAPS.md`](docs/GAPS.md)
-for known gaps and TODOs.
+Sirius builds on [Readymade](https://github.com/FyraLabs/readymade) by Fyra Labs —
+`libreadymade` does the heavy lifting of every install.

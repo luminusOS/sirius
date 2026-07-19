@@ -62,7 +62,18 @@
   border-bottom-right-radius: 12px;
 }
 
+/* Adjacent segments sit flush against each other, so without a separator
+   two neighbouring partitions of similar color merge into one block. */
+.partition-segment:not(:last-child) {
+  border-right: 1px solid alpha(@window_fg_color, .35);
+}
+
+/* Distinct color per filesystem family — sharing one "linux" green made
+   ext4 and btrfs indistinguishable in the map and in the row indicators. */
 .partition-efi { background: #3584e4; }
+.partition-ext4 { background: #26a269; }
+.partition-btrfs { background: #2190a4; }
+.partition-xfs { background: #c64600; }
 .partition-linux { background: #26a269; }
 .partition-swap { background: #cd9309; }
 .partition-ntfs { background: #9141ac; }
@@ -70,4 +81,17 @@
 
 .pending-delete {
   opacity: .55;
+}
+
+/* Perfect-circle hover for the partition-row icon buttons. The `circular`
+   class only sets a huge border-radius, so any width/height mismatch turns
+   the hover into a capsule — pin equal dimensions and zero padding. The
+   buttons must ALSO stay square in the layout: row suffixes default to
+   valign=FILL, which stretches the button to the row height, so the code
+   sets valign=Center on every .editor-round button. */
+button.editor-round {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 999px;
 }

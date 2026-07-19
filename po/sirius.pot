@@ -1,0 +1,443 @@
+# Sirius installer message template.
+# Copyright (C) 2026 The Sirius contributors
+# This file is distributed under the same license as the sirius package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: sirius 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-18 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: \n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Back"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "Open terminal"
+msgstr ""
+
+msgid "Confirm installation"
+msgstr ""
+
+msgid "All data on the selected disk will be permanently erased and the system will be installed. This cannot be undone."
+msgstr ""
+
+msgid "The staged partition changes will now be written to disk and Sirius will be installed. Formatted or deleted data cannot be recovered."
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Erase disk and install"
+msgstr ""
+
+msgid "Welcome"
+msgstr ""
+
+msgid "This assistant will guide you through installation."
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Connect to a network. A connection is optional but recommended."
+msgstr ""
+
+msgid "Choose a Wi-Fi network below."
+msgstr ""
+
+msgid "Available Wi-Fi networks"
+msgstr ""
+
+msgid "Looking for networks…"
+msgstr ""
+
+msgid "Connect"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "Scan again"
+msgstr ""
+
+msgid "Open network"
+msgstr ""
+
+msgid "WPA/WPA2 Personal"
+msgstr ""
+
+msgid "WPA3 Personal"
+msgstr ""
+
+msgid "Enterprise or legacy security is not supported here"
+msgstr ""
+
+msgid "Connect to {ssid}"
+msgstr ""
+
+msgid "Enter the Wi-Fi password."
+msgstr ""
+
+msgid "Keyboard layout"
+msgstr ""
+
+msgid "Type here to test your layout"
+msgstr ""
+
+msgid "Time zone"
+msgstr ""
+
+msgid "Partitioning"
+msgstr ""
+
+msgid "Automatic"
+msgstr ""
+
+msgid "Encrypt the disk (LUKS)"
+msgstr ""
+
+msgid "Bind encryption to TPM"
+msgstr ""
+
+msgid "Create your account"
+msgstr ""
+
+msgid "Full name"
+msgstr ""
+
+msgid "Username"
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Confirm password"
+msgstr ""
+
+msgid "Hostname"
+msgstr ""
+
+msgid "Ready to install"
+msgstr ""
+
+msgid "Review your choices before writing changes to disk."
+msgstr ""
+
+msgid "Language"
+msgstr ""
+
+msgid "Keyboard"
+msgstr ""
+
+msgid "Disk"
+msgstr ""
+
+msgid "Encryption"
+msgstr ""
+
+msgid "User"
+msgstr ""
+
+msgid "enabled"
+msgstr ""
+
+msgid "disabled"
+msgstr ""
+
+msgid "manual layout"
+msgstr ""
+
+msgid "Storage"
+msgstr ""
+
+msgid "Choose a disk and how Sirius should use it. Changes are applied only after confirmation."
+msgstr ""
+
+msgid "Destination disk"
+msgstr ""
+
+msgid "Automatic partitioning"
+msgstr ""
+
+msgid "Erase the disk and create the needed partitions automatically."
+msgstr ""
+
+msgid "Manual partitioning"
+msgstr ""
+
+msgid "Create, resize, and delete partitions yourself."
+msgstr ""
+
+msgid "All data on this disk will be erased."
+msgstr ""
+
+msgid "Discard changes"
+msgstr ""
+
+msgid "Disk layout"
+msgstr ""
+
+msgid "Table"
+msgstr ""
+
+msgid "Partition editor"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Done"
+msgstr ""
+
+msgid "Delete Partition"
+msgstr ""
+
+msgid "Not mounted"
+msgstr ""
+
+msgid "Unformatted"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "New Sirius Partition"
+msgstr ""
+
+msgid "EFI System Partition"
+msgstr ""
+
+msgid "Sirius Root"
+msgstr ""
+
+msgid "Swap"
+msgstr ""
+
+msgid "Volumes and partitions"
+msgstr ""
+
+msgid "Unallocated space"
+msgstr ""
+
+msgid "New partition pending"
+msgstr ""
+
+msgid "Edit partition"
+msgstr ""
+
+msgid "Create partition"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Filesystem"
+msgstr ""
+
+msgid "Size (GiB)"
+msgstr ""
+
+msgid "Mount point: / or /boot/efi"
+msgstr ""
+
+msgid "Mount Point"
+msgstr ""
+
+msgid "Label"
+msgstr ""
+
+msgid "Save Changes"
+msgstr ""
+
+msgid "Disks could not be loaded"
+msgstr ""
+
+msgid "No available disks"
+msgstr ""
+
+msgid "Connect a disk or unmount its filesystems and reopen Sirius."
+msgstr ""
+
+msgid "in use"
+msgstr ""
+
+msgid "System compatibility"
+msgstr ""
+
+msgid "Sirius checked your hardware before installing."
+msgstr ""
+
+msgid "Select a disk"
+msgstr ""
+
+msgid "The chosen disk will be erased."
+msgstr ""
+
+msgid "No disks found"
+msgstr ""
+
+msgid "Installing the system"
+msgstr ""
+
+msgid "Show install log"
+msgstr ""
+
+msgid "Installation failed"
+msgstr ""
+
+msgid "Something went wrong during installation. Check the log below for details. No changes were finished — you can reboot and try again."
+msgstr ""
+
+msgid "Installation complete"
+msgstr ""
+
+msgid "The system is installed. Reboot to start using it."
+msgstr ""
+
+msgid "Restart now"
+msgstr ""
+
+msgid "Encryption passphrase"
+msgstr ""
+
+msgid "Confirm passphrase"
+msgstr ""
+
+msgid "Passphrase must be at least 8 characters"
+msgstr ""
+
+msgid "Passphrases do not match"
+msgstr ""
+
+msgid "Full name is required"
+msgstr ""
+
+msgid "Username is required"
+msgstr ""
+
+msgid "Username may only contain lowercase letters, digits, '_' and '-'"
+msgstr ""
+
+msgid "Username must start with a lowercase letter"
+msgstr ""
+
+msgid "Password must be at least 8 characters"
+msgstr ""
+
+msgid "Passwords do not match"
+msgstr ""
+
+msgid "Hostname is required"
+msgstr ""
+
+msgid "UEFI firmware"
+msgstr ""
+
+msgid "EFI firmware detected"
+msgstr ""
+
+msgid "System booted in legacy BIOS mode; UEFI is required"
+msgstr ""
+
+msgid "Memory"
+msgstr ""
+
+msgid "{available} GiB available (need {required} GiB)"
+msgstr ""
+
+msgid "{available} GiB available, {required} GiB required"
+msgstr ""
+
+msgid "Disk space"
+msgstr ""
+
+msgid "{available} GiB disk available (need {required} GiB)"
+msgstr ""
+
+msgid "No disk large enough for the install image"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
+
+msgid "Secure Boot is enabled"
+msgstr ""
+
+msgid "disabled; recommended for a secure system"
+msgstr ""
+
+msgid "state could not be determined"
+msgstr ""
+
+msgid "Virtualization"
+msgstr ""
+
+msgid "running on bare metal"
+msgstr ""
+
+msgid "running inside a virtual machine ({kind})"
+msgstr ""
+
+msgid "connected"
+msgstr ""
+
+msgid "no connection; some post-install steps may be skipped"
+msgstr ""
+
+msgid "post-install: {name} ({index}/{total})"
+msgstr ""
+
+msgid "target disk must be an absolute /dev path: {path}"
+msgstr ""
+
+msgid "cannot stat target disk {path}: {error}"
+msgstr ""
+
+msgid "target disk is not a block device: {path}"
+msgstr ""
+
+msgid "target is not a supported whole disk: {path}"
+msgstr ""
+
+msgid "target disk has mounted filesystems; unmount them before installing: {path}"
+msgstr ""
+
+msgid "failed to read install request"
+msgstr ""
+
+msgid "invalid install request: {error}"
+msgstr ""
+
+msgid "cannot apply partition plan: {error}"
+msgstr ""
+
+msgid "install failed: {error}"
+msgstr ""
+
+msgid "install thread panicked"
+msgstr ""
+
+msgid "authorization dialog was dismissed (pkexec exit 126)"
+msgstr ""
+
+msgid "polkit authorization failed (pkexec exit 127) — is a polkit authentication agent running in this session?"
+msgstr ""
+
+msgid "installer exited with status {code}"
+msgstr ""
+
+msgid "installer was killed by a signal"
+msgstr ""

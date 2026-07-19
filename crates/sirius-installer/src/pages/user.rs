@@ -3,12 +3,12 @@
 
 use super::PageOutput;
 use crate::config_model::UserAccount;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 #[derive(Default)]
 pub struct UserPage {
-    lang: crate::i18n::Lang,
     account: UserAccount,
 }
 
@@ -19,7 +19,9 @@ pub enum UserMsg {
     Password(String),
     PasswordConfirm(String),
     Hostname(String),
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 #[relm4::component(pub)]
@@ -31,7 +33,7 @@ impl SimpleComponent for UserPage {
     view! {
         adw::StatusPage {
             #[watch]
-            set_title: crate::i18n::tr(model.lang, "user.title"),
+            set_title: gettext("Create your account").as_str(),
             #[wrap(Some)]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
@@ -50,35 +52,35 @@ impl SimpleComponent for UserPage {
                 adw::PreferencesGroup {
                     adw::EntryRow {
                         #[watch]
-                        set_title: crate::i18n::tr(model.lang, "user.full_name"),
+                        set_title: gettext("Full name").as_str(),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::FullName(e.text().to_string()));
                         },
                     },
                     adw::EntryRow {
                         #[watch]
-                        set_title: crate::i18n::tr(model.lang, "user.username"),
+                        set_title: gettext("Username").as_str(),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::Username(e.text().to_string()));
                         },
                     },
                     adw::PasswordEntryRow {
                         #[watch]
-                        set_title: crate::i18n::tr(model.lang, "user.password"),
+                        set_title: gettext("Password").as_str(),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::Password(e.text().to_string()));
                         },
                     },
                     adw::PasswordEntryRow {
                         #[watch]
-                        set_title: crate::i18n::tr(model.lang, "user.confirm"),
+                        set_title: gettext("Confirm password").as_str(),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::PasswordConfirm(e.text().to_string()));
                         },
                     },
                     adw::EntryRow {
                         #[watch]
-                        set_title: crate::i18n::tr(model.lang, "user.hostname"),
+                        set_title: gettext("Hostname").as_str(),
                         connect_changed[sender] => move |e| {
                             sender.input(UserMsg::Hostname(e.text().to_string()));
                         },
@@ -105,10 +107,7 @@ impl SimpleComponent for UserPage {
             UserMsg::Password(v) => self.account.password = v,
             UserMsg::PasswordConfirm(v) => self.account.password_confirm = v,
             UserMsg::Hostname(v) => self.account.hostname = v,
-            UserMsg::SetLang(l) => {
-                self.lang = l;
-                return;
-            }
+            UserMsg::Retranslate => return,
         }
         sender
             .output(PageOutput::SetUser(self.account.clone()))

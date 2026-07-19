@@ -2,12 +2,12 @@
 
 use super::PageOutput;
 use crate::backend::network::{connect_wifi, scan_wifi, WifiNetwork, WifiSecurity};
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct NetworkPage {
     root: adw::StatusPage,
-    lang: crate::i18n::Lang,
     networks: Vec<WifiNetwork>,
     loading: bool,
     connecting: Option<usize>,
@@ -21,7 +21,7 @@ pub enum NetworkMsg {
     Select(usize),
     Connect { index: usize, password: String },
     Connected(Result<(), String>),
-    SetLang(crate::i18n::Lang),
+    Retranslate,
 }
 
 pub struct NetworkPageWidgets {
@@ -46,15 +46,13 @@ impl SimpleComponent for NetworkPage {
     ) -> ComponentParts<Self> {
         let model = NetworkPage {
             root: root.clone(),
-            lang: crate::i18n::Lang::En,
             networks: Vec::new(),
             loading: true,
             connecting: None,
             error: None,
         };
         root.set_icon_name(Some("network-wireless-symbolic"));
-        root.set_title(crate::i18n::tr(model.lang, "network.title"));
-        root.set_description(Some(crate::i18n::tr(model.lang, "network.desc")));
+        apply_header(&root);
         scan_in_background(sender.clone());
         ComponentParts {
             model,
@@ -86,10 +84,10 @@ impl SimpleComponent for NetworkPage {
                         password: String::new(),
                     }),
                     WifiSecurity::WpaPersonal | WifiSecurity::Wpa3Personal => {
-                        show_password_dialog(&self.root, index, &network.ssid, self.lang, &sender)
+                        show_password_dialog(&self.root, index, &network.ssid, &sender)
                     }
                     WifiSecurity::Unsupported => {
-                        self.error = Some(crate::i18n::tr(self.lang, "network.unsupported").into())
+                        self.error = Some(security_label(network.security))
                     }
                 }
             }
@@ -114,25 +112,20 @@ impl SimpleComponent for NetworkPage {
                     Err(error) => self.error = Some(error),
                 }
             }
-            NetworkMsg::SetLang(lang) => self.lang = lang,
+            NetworkMsg::Retranslate => {}
         }
     }
 
     fn update_view(&self, widgets: &mut Self::Widgets, sender: ComponentSender<Self>) {
-        widgets
-            .root
-            .set_title(crate::i18n::tr(self.lang, "network.title"));
-        widgets
-            .root
-            .set_description(Some(crate::i18n::tr(self.lang, "network.desc")));
+        apply_header(&widgets.root);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 14);
         content.set_width_request(650);
         let group = adw::PreferencesGroup::new();
-        group.set_title(crate::i18n::tr(self.lang, "network.available"));
+        group.set_title(&gettext("Available Wi-Fi networks"));
         if self.loading {
             let row = adw::ActionRow::new();
-            row.set_title(crate::i18n::tr(self.lang, "network.scanning"));
+            row.set_title(&gettext("Looking for networks…"));
             let spinner = gtk::Spinner::new();
             spinner.start();
             row.add_suffix(&spinner);
@@ -141,11 +134,10 @@ impl SimpleComponent for NetworkPage {
         for (index, network) in self.networks.iter().enumerate() {
             let row = adw::ActionRow::new();
             row.set_title(&network.ssid);
-            row.set_subtitle(security_label(self.lang, network.security));
+            row.set_subtitle(&security_label(network.security));
             row.add_prefix(&gtk::Image::from_icon_name(signal_icon(network.strength)));
             if network.active {
-                let connected =
-                    gtk::Label::new(Some(crate::i18n::tr(self.lang, "network.connected")));
+                let connected = gtk::Label::new(Some(&gettext("Connected")));
                 connected.add_css_class("accent");
                 row.add_suffix(&connected);
             } else if self.connecting == Some(index) {
@@ -153,7 +145,7 @@ impl SimpleComponent for NetworkPage {
                 spinner.start();
                 row.add_suffix(&spinner);
             } else {
-                let button = gtk::Button::with_label(crate::i18n::tr(self.lang, "network.connect"));
+                let button = gtk::Button::with_label(&gettext("Connect"));
                 button.set_sensitive(
                     network.security != WifiSecurity::Unsupported && self.connecting.is_none(),
                 );
@@ -171,7 +163,7 @@ impl SimpleComponent for NetworkPage {
             label.set_wrap(true);
             content.append(&label);
         }
-        let refresh = gtk::Button::with_label(crate::i18n::tr(self.lang, "network.refresh"));
+        let refresh = gtk::Button::with_label(&gettext("Scan again"));
         refresh.set_halign(gtk::Align::Center);
         refresh.set_sensitive(!self.loading && self.connecting.is_none());
         refresh.connect_clicked(move |_| sender.input(NetworkMsg::Refresh));
@@ -184,26 +176,33 @@ fn scan_in_background(sender: ComponentSender<NetworkPage>) {
     std::thread::spawn(move || sender.input(NetworkMsg::Loaded(scan_wifi())));
 }
 
+/// Header text, applied both in `init` and on every `update_view`: gettext
+/// resolves at call time, so re-applying on the `Retranslate` nudge is what
+/// re-renders the header in the new language. One place, no drift between
+/// the two call sites.
+fn apply_header(root: &adw::StatusPage) {
+    root.set_title(&gettext("Network"));
+    root.set_description(Some(&gettext(
+        "Connect to a network. A connection is optional but recommended.",
+    )));
+}
+
 fn show_password_dialog(
     parent: &adw::StatusPage,
     index: usize,
     ssid: &str,
-    lang: crate::i18n::Lang,
     sender: &ComponentSender<NetworkPage>,
 ) {
     let dialog = adw::AlertDialog::builder()
-        .heading(format!(
-            "{} {ssid}",
-            crate::i18n::tr(lang, "network.connect_to")
-        ))
-        .body(crate::i18n::tr(lang, "network.password"))
+        .heading(gettext("Connect to {ssid}").replace("{ssid}", ssid))
+        .body(gettext("Enter the Wi-Fi password."))
         .build();
     let password = gtk::PasswordEntry::new();
     password.set_show_peek_icon(true);
     password.set_activates_default(true);
     dialog.set_extra_child(Some(&password));
-    dialog.add_response("cancel", crate::i18n::tr(lang, "confirm.cancel"));
-    dialog.add_response("connect", crate::i18n::tr(lang, "network.connect"));
+    dialog.add_response("cancel", &gettext("Cancel"));
+    dialog.add_response("connect", &gettext("Connect"));
     dialog.set_response_appearance("connect", adw::ResponseAppearance::Suggested);
     dialog.set_default_response(Some("connect"));
     dialog.set_close_response("cancel");
@@ -226,12 +225,11 @@ fn signal_icon(strength: u8) -> &'static str {
     }
 }
 
-fn security_label(lang: crate::i18n::Lang, security: WifiSecurity) -> &'static str {
-    let key = match security {
-        WifiSecurity::Open => "network.open",
-        WifiSecurity::WpaPersonal => "network.wpa",
-        WifiSecurity::Wpa3Personal => "network.wpa3",
-        WifiSecurity::Unsupported => "network.unsupported",
-    };
-    crate::i18n::tr(lang, key)
+fn security_label(security: WifiSecurity) -> String {
+    match security {
+        WifiSecurity::Open => gettext("Open network"),
+        WifiSecurity::WpaPersonal => gettext("WPA/WPA2 Personal"),
+        WifiSecurity::Wpa3Personal => gettext("WPA3 Personal"),
+        WifiSecurity::Unsupported => gettext("Enterprise or legacy security is not supported here"),
+    }
 }

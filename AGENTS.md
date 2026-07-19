@@ -12,18 +12,24 @@ distribution is named is `README.md`, as the origin story.
   (`SiriusConfig`, `PagesConfig::resolve`). No GTK, fully unit-tested.
 - `crates/sirius-installer` — the GTK wizard binary `sirius`. Subcommands: `diag`,
   `--dry-run`, and the hidden `run-playbook` (the privileged install entry point).
-- `crates/sirius-installer/src/backend/` — the ONLY module that touches `libreadymade`:
-  `distro` (descriptor), `adapter` (`InstallConfig` → `InstallRequest` → `Playbook`),
-  `runner` (root-side execute), `spawn` (pkexec + progress parse). Everything else
-  depends on the `backend::Progress` boundary type, not on libreadymade directly.
-- `vendor/filesystem-table/` — a patched copy of an upstream crate, overridden via
-  Cargo `[patch]` (see `docs/GAPS.md`).
+- `crates/sirius-installer/src/backend/` — the ONLY module that touches `libreadymade`,
+  NetworkManager, or UDisks2: `distro` (descriptor), `adapter`
+  (`InstallConfig` → `InstallRequest` → `Playbook`), `runner` (root-side execute),
+  `spawn` (pkexec + progress parse), `network` (NetworkManager client), `storage`
+  (lsblk discovery + UDisks2 mutations). Everything else depends on the
+  `backend::Progress` boundary type, not on libreadymade directly.
+- `po/` — gettext catalogs at the repo root: `LINGUAS` (enabled languages),
+  `POTFILES` (translatable sources), `pt_BR.po`, `sirius.pot`.
 
 ## Toolchain
 
 - Rust 2021. relm4 **0.10**, gtk4 **0.10**, libadwaita (`adw`) **0.8**, with relm4
   features `["libadwaita","gnome_45"]`. Needs `libadwaita-devel` / `gtk4-devel`.
-- `libreadymade` is a pinned git dependency with a `[patch]` override (see GAPS).
+- `libreadymade` is a pinned git dependency of the luminusOS fork (`rev` in the
+  workspace `Cargo.toml`, `default-features = false` to drop the `uutils`/`libacl`
+  feature; the native `rdm` copy backend is used).
+- `msgfmt` (gettext) is a required build tool: `crates/sirius-installer/build.rs`
+  compiles the `po/` catalogs with it.
 
 ## Commands
 
@@ -40,15 +46,21 @@ sudo -E SIRIUS_TEST_DISK=/dev/vdb cargo test --test vm_install -- --ignored vm_f
 ## Conventions
 
 - **Commits: never add a `Co-Authored-By` / co-author trailer.**
-- **Imperative pages use a manual `SimpleComponent` impl.** Pages that fill an
-  `adw::PreferencesGroup` programmatically (`diagnostics`, `disk`) implement
-  `SimpleComponent` by hand — `#[name=...]` inside a `set_child` block fights the
-  `#[relm4::component]` macro.
-- **`AppModel` is authoritative for page-arrival Next-gating** via `gate_for()`.
-  Pages emit `PageOutput::CanProceed` only for dynamic changes (e.g. a disk picked,
-  account typed). The navigator is filtered to `IMPLEMENTED_PAGES`.
+- **Imperative pages use a manual `SimpleComponent` impl.** Pages that build their
+  widget tree programmatically (`diagnostics`, `network`, `storage`, `summary`)
+  implement `SimpleComponent` by hand — `#[name=...]` inside a `set_child` block
+  fights the `#[relm4::component]` macro.
+- **`WizardState` is authoritative for Next-gating** via `can_proceed()`. Pages emit
+  `PageOutput::Set*` values as the user makes choices (a disk picked, an account
+  typed); the folded `InstallConfig` is what the gate reads. The resolved page list
+  is filtered to `IMPLEMENTED_PAGES`.
 - **The UI never touches disks.** It builds an `InstallRequest` (serializable); the
   install runs only inside `pkexec sirius run-playbook` as root, which streams
   newline-delimited `Progress` JSON back on stdout.
 - **Stay distro-agnostic.** Add per-distribution behavior through `distro.toml` /
   `sirius.toml`, not Rust code.
+- **Translations live in `po/`, not a Rust table.** msgids are the English literals
+  passed to `gettextrs::gettext()`. Keep `po/pt_BR.po` in sync when strings change
+  (validate with `msgfmt --check -o /dev/null po/pt_BR.po`); `build.rs` compiles the
+  catalogs via `msgfmt`, which is a required build tool. Runtime switching sets the
+  `LANGUAGE` environment variable and broadcasts a per-page `Retranslate` message.

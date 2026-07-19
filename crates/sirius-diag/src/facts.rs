@@ -25,7 +25,7 @@ impl SystemFacts {
             largest_disk_bytes: largest_disk_bytes(),
             secure_boot: read_secure_boot(),
             virt: detect_virt(),
-            online: false, // refined by Plan 2's network page; bare probe defaults offline-safe
+            online: false, // refined by the installer's network page; the bare probe defaults offline-safe
         }
     }
 }
@@ -123,7 +123,7 @@ fn parse_lsblk_line(line: &str) -> Option<DiskInfo> {
     Some(DiskInfo {
         path: format!("/dev/{name}"),
         model: if model.is_empty() {
-            "Disk".into()
+            gettextrs::gettext("Disk")
         } else {
             model.into()
         },

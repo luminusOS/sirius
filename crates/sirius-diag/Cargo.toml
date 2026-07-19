@@ -8,3 +8,6 @@ license.workspace = true
 serde = { workspace = true }
 toml = { workspace = true }
 sysinfo = { workspace = true }
+# Check labels/details are user-facing: resolve them through the process
+# textdomain ("sirius", initialized by the installer binary) at probe time.
+gettext-rs = { workspace = true }

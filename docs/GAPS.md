@@ -24,8 +24,10 @@ a first-boot agent.
 
 ## Other gaps
 
-- [ ] **Encryption key = user password (MVP).** LUKS currently reuses the account
-  password (`adapter::build_request`). Collect a dedicated passphrase instead.
+- [x] ~~**Encryption key = user password (MVP).**~~ Resolved: the storage page
+  now collects a dedicated LUKS passphrase pair (`encryption_passphrase` on
+  `InstallConfig`, gated by `WizardState::storage_is_valid`), and
+  `adapter::build_request` uses it instead of the account password.
 - [ ] **Placeholder repart templates.** `data/repart.d/*.conf` are generic ESP + btrfs
   defaults; ship real per-distribution layouts.
 - [ ] **pkexec target is pinned to `/usr/bin/sirius`** (polkit policy). Only works when
@@ -33,34 +35,41 @@ a first-boot agent.
   root the runner is spawned directly (no pkexec), and pkexec exits 126/127 are reported
   with a clear polkit-agent hint in the progress log. A live session still needs a polkit
   agent or a rule granting the action (see INSTALL.md).
-- [ ] **libreadymade pin + patch.** Pinned to readymade HEAD `ccdf092`, which does not
-  compile due to a one-line `PathBuf == String` bug in the sibling `filesystem-table`
-  crate. `vendor/filesystem-table/` carries a one-line-fixed copy overridden via
-  `[patch."https://github.com/FyraLabs/readymade.git"]`. `libreadymade` is pulled with
-  `default-features = false` to avoid the `uutils` feature (which needs `libacl-devel`);
-  the default `rdm` copy backend is used. **When bumping the `rev`, bump the vendored
-  crate's version in lockstep** or the patch silently stops applying.
-- [ ] **Progress bar appears static** during the bootc image pull + repart (upstream emits
-  no progress there); only postinstall modules report progress. Textual progress and
-  errors appear in the log view behind the progress page's log toggle button.
+- [ ] **libreadymade comes from the LuminusOS fork**, pinned to rev `c58f56d`, while
+  upstream fixes required by Sirius are pending (the fork carries the patched
+  `filesystem-table` crate in-tree, so no Cargo `[patch]` override is needed).
+  `libreadymade` is pulled with `default-features = false` to avoid the `uutils`
+  feature (which needs `libacl-devel`); the default `rdm` copy backend is used.
+- [x] ~~**Progress bar appears static** during the bootc image pull + repart.~~
+  Resolved: the progress page pulses the bar for any stage message without a
+  fraction (`ProgressMsg::Pulse` on a 120 ms timer plus `advance_bar(0.0)`);
+  only postinstall modules report real fractions. Textual progress and errors
+  appear in the log view behind the progress page's log toggle button.
 - [ ] **Real installs are only verified via the ignored VM test** (`tests/vm_install.rs`)
   in a live ISO; there is no unprivileged way to exercise the full path.
 
 ## i18n — dynamic strings remain English
 
 The wizard UI (page titles, descriptions, field labels, buttons) is translated live
-(en/pt-BR) via `src/i18n.rs`. The following DYNAMIC strings are still English-only and
-are a TODO:
+(en/pt-BR) via gettextrs and the catalogs in `po/` (`POTFILES` lists the translatable
+sources; `build.rs` compiles them with `msgfmt`). Dynamic strings produced outside the
+page widgets are now mostly covered too:
 
-- [ ] Diagnostic check labels/details (generated in `sirius-diag`).
+- [x] Diagnostic check labels/details — `sirius-diag` resolves them through the
+  process textdomain at probe time (the `diag` subcommand also initializes gettext).
+- [x] Install progress/log lines emitted by Sirius's own runner code — the runner
+  initializes gettext and pins `LANGUAGE` from `InstallRequest.locale` (pkexec
+  scrubs the environment). Stage strings originating inside **libreadymade**
+  itself remain English-only (upstream has no catalogs).
+- [x] Account validation error messages (`UserAccount::validate`) and the LUKS
+  passphrase validation.
+- [ ] Error strings from `backend::storage` / `backend::distro` surfaced through
+  runner `fail(...)` wrappers are still English-only.
 - [ ] Storage and NetworkManager runtime flows still need hardware-in-the-loop
   coverage across SATA, NVMe, WPA3 transition mode, and multiple Wi-Fi adapters.
-- [ ] Install progress/log lines (from the privileged runner).
-- [ ] Account validation error messages (from `UserAccount::validate`).
 
-Localizing these requires translating in `sirius-diag` and/or threading the language
-into the dynamic producers. Add new UI strings to BOTH the `en` and `pt` tables in
-`src/i18n.rs`.
+Add new UI strings to `po/sirius.pot` AND `po/pt_BR.po`, and the source file to
+`po/POTFILES`.
 
 ## Deliberate storage limits
 

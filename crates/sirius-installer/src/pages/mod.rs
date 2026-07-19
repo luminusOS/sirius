@@ -25,6 +25,9 @@ pub struct StorageSelection {
     pub install_type: InstallType,
     pub encrypt: bool,
     pub tpm: bool,
+    /// Dedicated LUKS passphrase pair; only meaningful when `encrypt` is set.
+    pub encryption_passphrase: String,
+    pub encryption_passphrase_confirm: String,
     pub partition_plan: Option<PartitionPlan>,
 }
 

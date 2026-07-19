@@ -6,7 +6,7 @@ use super::draft::{remaining_region, PartitionDraft};
 use super::{StorageMsg, StoragePage};
 use crate::backend::storage::{format_size, DiskSnapshot, PartitionSnapshot};
 use crate::config_model::{PartitionOperation, PartitionPlan, PartitionRef};
-use crate::i18n::{tr, Lang};
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentSender};
 
@@ -22,11 +22,14 @@ pub(super) fn build(
     draft_error: Option<&str>,
     uefi: bool,
     sender: &ComponentSender<StoragePage>,
-    lang: Lang,
 ) -> adw::ToolbarView {
     let toolbar = adw::ToolbarView::new();
     let header = adw::HeaderBar::new();
-    let done = gtk::Button::with_label(tr(lang, "storage.done"));
+    header.set_title_widget(Some(&adw::WindowTitle::new(
+        &gettext("Partition editor"),
+        "",
+    )));
+    let done = gtk::Button::with_label(&gettext("Done"));
     done.add_css_class("suggested-action");
     let page_sender = sender.clone();
     done.connect_clicked(move |_| page_sender.input(StorageMsg::CloseEditor));
@@ -35,23 +38,27 @@ pub(super) fn build(
 
     let plan = draft.map(PartitionDraft::plan);
 
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
-    content.add_css_class("storage-content");
-    content.append(&disk_heading(disk, lang));
-    content.append(&disk_map(disk, plan, lang));
-    content.append(&volumes_header(disk, draft, lang, sender));
-    content.append(&partition_list(disk, plan, sender, lang));
-
+    // Validation errors sit ABOVE the volumes list: at the bottom of a long
+    // partition list they'd be below the fold, invisible without scrolling.
     let error = draft_error
         .map(str::to_string)
         .or_else(|| draft.and_then(|d| d.validate(uefi).err()));
+
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
+    content.add_css_class("storage-content");
+    content.append(&disk_heading(disk));
+    content.append(&disk_map(disk, plan));
+    content.append(&volumes_header(disk, draft, sender));
     if let Some(error) = error {
         let warning = gtk::Label::new(Some(&error));
         warning.add_css_class("error");
         warning.set_halign(gtk::Align::Start);
+        warning.set_margin_start(12);
+        warning.set_margin_end(12);
         warning.set_wrap(true);
         content.append(&warning);
     }
+    content.append(&partition_list(disk, plan, sender));
 
     let clamp = adw::Clamp::builder()
         .maximum_size(720)
@@ -70,12 +77,12 @@ pub(super) fn build(
 /// Highlighted disk name at the top of the editor — a plain label, not a
 /// selector. The disk is already fixed by the main page's picker and Sirius
 /// only ever installs to one disk, so there is nothing to choose here.
-fn disk_heading(disk: &DiskSnapshot, lang: Lang) -> gtk::Box {
+fn disk_heading(disk: &DiskSnapshot) -> gtk::Box {
     let container = gtk::Box::new(gtk::Orientation::Vertical, 2);
     container.set_margin_start(12);
     container.set_margin_end(12);
 
-    let caption = gtk::Label::new(Some(tr(lang, "storage.disk")));
+    let caption = gtk::Label::new(Some(&gettext("Destination disk")));
     caption.add_css_class("dim-label");
     caption.add_css_class("caption");
     caption.set_halign(gtk::Align::Start);
@@ -98,13 +105,12 @@ fn disk_heading(disk: &DiskSnapshot, lang: Lang) -> gtk::Box {
 fn volumes_header(
     disk: &DiskSnapshot,
     draft: Option<&PartitionDraft>,
-    lang: Lang,
     sender: &ComponentSender<StoragePage>,
 ) -> gtk::Box {
     let header = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     header.set_margin_start(12);
     header.set_margin_end(12);
-    let title = gtk::Label::new(Some(tr(lang, "storage.volumes")));
+    let title = gtk::Label::new(Some(&gettext("Volumes and partitions")));
     title.add_css_class("heading");
     title.add_css_class("dim-label");
     title.set_hexpand(true);
@@ -113,7 +119,7 @@ fn volumes_header(
 
     let dirty = draft.is_some_and(|draft| !draft.plan().operations.is_empty());
     if dirty {
-        let discard = gtk::Button::with_label(tr(lang, "storage.discard"));
+        let discard = gtk::Button::with_label(&gettext("Discard changes"));
         discard.add_css_class("flat");
         let page_sender = sender.clone();
         discard.connect_clicked(move |_| page_sender.input(StorageMsg::ResetDraft));
@@ -122,7 +128,7 @@ fn volumes_header(
 
     let table = gtk::Label::new(Some(&format!(
         "{}: {}",
-        tr(lang, "storage.table"),
+        gettext("Table"),
         disk.table_type.to_ascii_uppercase()
     )));
     table.add_css_class("storage-badge");
@@ -130,7 +136,7 @@ fn volumes_header(
     header
 }
 
-fn disk_map(disk: &DiskSnapshot, plan: Option<&PartitionPlan>, lang: Lang) -> gtk::Box {
+fn disk_map(disk: &DiskSnapshot, plan: Option<&PartitionPlan>) -> gtk::Box {
     struct Segment {
         offset: u64,
         size: u64,
@@ -194,7 +200,7 @@ fn disk_map(disk: &DiskSnapshot, plan: Option<&PartitionPlan>, lang: Lang) -> gt
                     class: filesystem_class(filesystem),
                     tooltip: format!(
                         "{} • {}",
-                        tr(lang, "storage.pending"),
+                        gettext("New partition pending"),
                         format_size(*size_bytes)
                     ),
                     pending_delete: false,
@@ -207,11 +213,11 @@ fn disk_map(disk: &DiskSnapshot, plan: Option<&PartitionPlan>, lang: Lang) -> gt
             segments.push(Segment {
                 offset: free.offset_bytes,
                 size: free.size_bytes,
-                label: tr(lang, "storage.free").into(),
+                label: gettext("Unallocated space"),
                 class: "partition-free",
                 tooltip: format!(
                     "{} • {}",
-                    tr(lang, "storage.free"),
+                    gettext("Unallocated space"),
                     format_size(free.size_bytes)
                 ),
                 pending_delete: false,
@@ -245,7 +251,6 @@ fn partition_list(
     disk: &DiskSnapshot,
     plan: Option<&PartitionPlan>,
     sender: &ComponentSender<StoragePage>,
-    lang: Lang,
 ) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     for (index, partition) in disk.partitions.iter().enumerate() {
@@ -253,20 +258,19 @@ fn partition_list(
         row.set_title(&format!(
             "{} ({})",
             partition.path,
-            partition_description(partition, lang)
+            partition_description(partition)
         ));
         add_indicator(&row, filesystem_class(&partition.filesystem));
         let mount = partition
             .mountpoints
             .first()
-            .map(String::as_str)
-            .unwrap_or(tr(lang, "storage.not_mounted"));
+            .map_or_else(|| gettext("Not mounted"), String::to_string);
         row.set_subtitle(&format!(
             "{} • {}",
             if partition.filesystem.is_empty() {
-                tr(lang, "storage.unknown")
+                gettext("Unknown")
             } else {
-                &partition.filesystem
+                partition.filesystem.clone()
             },
             mount
         ));
@@ -280,14 +284,18 @@ fn partition_list(
         });
         let edit = gtk::Button::from_icon_name("document-edit-symbolic");
         edit.add_css_class("flat");
+        edit.add_css_class("editor-round");
+        edit.set_valign(gtk::Align::Center);
         edit.set_sensitive(!pending_delete);
-        edit.set_tooltip_text(Some(tr(lang, "storage.edit")));
+        edit.set_tooltip_text(Some(&gettext("Edit partition")));
         let page_sender = sender.clone();
         edit.connect_clicked(move |_| page_sender.input(StorageMsg::OpenEdit(index)));
         row.add_suffix(&edit);
         let delete = gtk::Button::from_icon_name("user-trash-symbolic");
         delete.add_css_class("flat");
-        delete.set_tooltip_text(Some(tr(lang, "storage.delete")));
+        delete.add_css_class("editor-round");
+        delete.set_valign(gtk::Align::Center);
+        delete.set_tooltip_text(Some(&gettext("Delete Partition")));
         delete.set_sensitive(partition.mountpoints.is_empty() && !pending_delete);
         let page_sender = sender.clone();
         delete.connect_clicked(move |_| page_sender.input(StorageMsg::Delete(index)));
@@ -305,19 +313,22 @@ fn partition_list(
             .is_some_and(|region| region.size_bytes < free.size_bytes);
         let row = adw::ActionRow::new();
         add_indicator(&row, "partition-free");
-        row.set_title(if used {
-            tr(lang, "storage.pending")
+        let title = if used {
+            gettext("New partition pending")
         } else {
-            tr(lang, "storage.free")
-        });
-        row.set_subtitle(tr(lang, "storage.unformatted"));
+            gettext("Unallocated space")
+        };
+        row.set_title(&title);
+        row.set_subtitle(&gettext("Unformatted"));
         add_size(
             &row,
             remaining.as_ref().map_or(0, |region| region.size_bytes),
         );
         let add = gtk::Button::from_icon_name("list-add-symbolic");
         add.add_css_class("flat");
-        add.set_tooltip_text(Some(tr(lang, "storage.create")));
+        add.add_css_class("editor-round");
+        add.set_valign(gtk::Align::Center);
+        add.set_tooltip_text(Some(&gettext("Create partition")));
         add.set_sensitive(remaining.is_some());
         let page_sender = sender.clone();
         add.connect_clicked(move |_| page_sender.input(StorageMsg::OpenCreate(index)));
@@ -339,25 +350,29 @@ fn partition_list(
             };
             let row = adw::ActionRow::new();
             add_indicator(&row, filesystem_class(filesystem));
-            row.set_title(if label.is_empty() {
-                tr(lang, "storage.new_partition")
+            let title = if label.is_empty() {
+                gettext("New Sirius Partition")
             } else {
-                label
-            });
+                label.clone()
+            };
+            row.set_title(&title);
             let mount = plan
                 .mounts
                 .iter()
                 .find(|assignment| {
                     matches!(&assignment.target, PartitionRef::Planned { id: current } if current == id)
                 })
-                .map(|assignment| assignment.mount_point.as_str())
-                .unwrap_or(tr(lang, "storage.not_mounted"));
+                .map_or_else(|| gettext("Not mounted"), |assignment| {
+                    assignment.mount_point.clone()
+                });
             row.set_subtitle(&format!("{} • {}", filesystem, mount));
             add_size(&row, *size_bytes);
             row.add_css_class("accent");
             let edit = gtk::Button::from_icon_name("document-edit-symbolic");
             edit.add_css_class("flat");
-            edit.set_tooltip_text(Some(tr(lang, "storage.edit")));
+            edit.add_css_class("editor-round");
+            edit.set_valign(gtk::Align::Center);
+            edit.set_tooltip_text(Some(&gettext("Edit partition")));
             let page_sender = sender.clone();
             let edit_id = id.clone();
             edit.connect_clicked(move |_| {
@@ -366,7 +381,9 @@ fn partition_list(
             row.add_suffix(&edit);
             let remove = gtk::Button::from_icon_name("user-trash-symbolic");
             remove.add_css_class("flat");
-            remove.set_tooltip_text(Some(tr(lang, "storage.delete")));
+            remove.add_css_class("editor-round");
+            remove.set_valign(gtk::Align::Center);
+            remove.set_tooltip_text(Some(&gettext("Delete Partition")));
             let page_sender = sender.clone();
             let id = id.clone();
             remove
@@ -398,33 +415,36 @@ fn add_size(row: &adw::ActionRow, bytes: u64) {
     row.add_suffix(&size);
 }
 
-fn partition_description(partition: &PartitionSnapshot, lang: Lang) -> String {
+fn partition_description(partition: &PartitionSnapshot) -> String {
     if partition
         .mountpoints
         .iter()
         .any(|mount| mount == "/boot/efi")
         || matches!(partition.filesystem.as_str(), "vfat" | "fat32")
     {
-        tr(lang, "storage.efi_partition").into()
+        gettext("EFI System Partition")
     } else if partition.mountpoints.iter().any(|mount| mount == "/") {
-        tr(lang, "storage.root_partition").into()
+        gettext("Sirius Root")
     } else if partition.filesystem == "swap" {
-        tr(lang, "storage.swap_partition").into()
+        gettext("Swap")
     } else if !partition.label.is_empty() {
         partition.label.clone()
     } else if !partition.filesystem.is_empty() {
         partition.filesystem.to_ascii_uppercase()
     } else {
-        tr(lang, "storage.unknown").into()
+        gettext("Unknown")
     }
 }
 
 fn filesystem_class(filesystem: &str) -> &'static str {
     match filesystem {
         "vfat" | "fat32" => "partition-efi",
+        "ext4" => "partition-ext4",
+        "btrfs" => "partition-btrfs",
+        "xfs" => "partition-xfs",
         "swap" => "partition-swap",
         "ntfs" => "partition-ntfs",
-        "btrfs" | "ext4" => "partition-linux",
+        "f2fs" | "ext3" | "ext2" => "partition-linux",
         _ => "partition-free",
     }
 }

@@ -3,11 +3,15 @@
 use super::draft::PartitionSpec;
 use super::{StorageMsg, StoragePage};
 use crate::backend::storage::{FreeRegion, PartitionSnapshot};
-use crate::i18n::{tr, Lang};
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentSender};
 
 const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+
+/// Filesystems offered by the create/edit form, in display order. Also used
+/// to map a prefill value back to a ComboRow position.
+const FILESYSTEMS: [&str; 4] = ["btrfs", "ext4", "vfat", "swap"];
 
 pub(super) enum DialogTarget {
     Create(usize, FreeRegion),
@@ -37,36 +41,33 @@ pub(super) fn show(
     sender: &ComponentSender<StoragePage>,
     target: DialogTarget,
     source: Option<EditSource<'_>>,
-    lang: Lang,
 ) {
+    let title = if source.is_some() {
+        gettext("Edit partition")
+    } else {
+        gettext("Create partition")
+    };
     let dialog = adw::Dialog::builder()
-        .title(if source.is_some() {
-            tr(lang, "storage.edit")
-        } else {
-            tr(lang, "storage.create")
-        })
+        .title(&title)
         .content_width(460)
         .build();
     let toolbar = adw::ToolbarView::new();
     let header = adw::HeaderBar::new();
-    let cancel = gtk::Button::with_label(tr(lang, "confirm.cancel"));
-    let affirmative = gtk::Button::with_label(tr(
-        lang,
-        if source.is_some() {
-            "storage.save_changes"
-        } else {
-            "storage.create"
-        },
-    ));
+    let cancel = gtk::Button::with_label(&gettext("Cancel"));
+    let affirmative = gtk::Button::with_label(&if source.is_some() {
+        gettext("Save Changes")
+    } else {
+        gettext("Create partition")
+    });
     affirmative.add_css_class("suggested-action");
     header.pack_start(&cancel);
     header.pack_end(&affirmative);
     toolbar.add_top_bar(&header);
 
     let form = adw::PreferencesGroup::new();
-    let filesystems = gtk::StringList::new(&["btrfs", "ext4", "vfat", "swap"]);
+    let filesystems = gtk::StringList::new(&FILESYSTEMS);
     let filesystem = adw::ComboRow::new();
-    filesystem.set_title(tr(lang, "storage.filesystem"));
+    filesystem.set_title(&gettext("Filesystem"));
     filesystem.set_model(Some(&filesystems));
     let existing_fs = match &source {
         Some(EditSource::Existing(p)) => p.filesystem.as_str(),
@@ -74,7 +75,7 @@ pub(super) fn show(
         None => "btrfs",
     };
     filesystem.set_selected(
-        ["btrfs", "ext4", "vfat", "swap"]
+        FILESYSTEMS
             .iter()
             .position(|fs| *fs == existing_fs)
             .unwrap_or(0) as u32,
@@ -107,7 +108,7 @@ pub(super) fn show(
         _ => (1.0, 1.0),
     };
     let size = adw::SpinRow::with_range(0.5, range_max.max(0.5), 0.5);
-    size.set_title(tr(lang, "storage.size"));
+    size.set_title(&gettext("Size (GiB)"));
     size.set_value(initial_value.max(0.5));
     // Size is only fixed (non-editable) when editing a partition that is
     // already written to disk; both creating and editing a planned partition
@@ -116,7 +117,7 @@ pub(super) fn show(
     form.add(&size);
 
     let mount = adw::EntryRow::new();
-    mount.set_title(tr(lang, "storage.mount"));
+    mount.set_title(&gettext("Mount Point"));
     mount.set_text(match &source {
         Some(EditSource::Existing(p)) => p.mountpoints.first().map(String::as_str).unwrap_or(""),
         Some(EditSource::Planned { mount_point, .. }) => mount_point,
@@ -125,7 +126,7 @@ pub(super) fn show(
     form.add(&mount);
 
     let label = adw::EntryRow::new();
-    label.set_title(tr(lang, "storage.label"));
+    label.set_title(&gettext("Label"));
     label.set_text(match &source {
         Some(EditSource::Existing(p)) => p.label.as_str(),
         Some(EditSource::Planned { label, .. }) => label,

@@ -47,16 +47,18 @@ pub fn build_request(cfg: &InstallConfig) -> Result<InstallRequest, String> {
         }
         plan.validate(std::path::Path::new("/sys/firmware/efi").exists())?;
     }
-    if encrypt || !cfg.user.is_empty() {
+    if encrypt {
+        cfg.validate_encryption()?;
+    }
+    if !cfg.user.is_empty() {
         cfg.user.validate()?;
     }
     Ok(InstallRequest {
         target_disk,
         encrypt,
         tpm: cfg.tpm && encrypt,
-        // MVP: bind LUKS to the user password when encrypting (InstallConfig collects no separate key).
         encryption_key: if encrypt {
-            cfg.user.password.clone()
+            cfg.encryption_passphrase.clone()
         } else {
             String::new()
         },
@@ -180,6 +182,8 @@ mod tests {
             partition_plan: None,
             encrypt: false,
             tpm: true,
+            encryption_passphrase: "correct horse battery staple".into(),
+            encryption_passphrase_confirm: "correct horse battery staple".into(),
             user: UserAccount {
                 full_name: "Ada Lovelace".into(),
                 username: "ada".into(),
@@ -197,7 +201,8 @@ mod tests {
         assert!(req.encrypt);
         assert!(req.tpm);
         assert_eq!(req.timezone, "America/Sao_Paulo");
-        assert_eq!(req.encryption_key, "hunter2hunter");
+        // The LUKS key is the dedicated passphrase, not the account password.
+        assert_eq!(req.encryption_key, "correct horse battery staple");
     }
 
     #[test]
@@ -253,14 +258,30 @@ mod tests {
     }
 
     #[test]
-    fn encrypted_install_requires_user_password() {
+    fn encrypted_install_requires_passphrase() {
+        let mut cfg = full_config();
+        cfg.install_type = Some(InstallType::Encrypted);
+        cfg.encrypt = true;
+        cfg.encryption_passphrase.clear();
+        cfg.encryption_passphrase_confirm.clear();
+
+        let err = build_request(&cfg).unwrap_err();
+        assert_eq!(err, "Passphrase must be at least 8 characters");
+    }
+
+    #[test]
+    fn encrypted_install_does_not_require_user_account() {
+        // The passphrase is dedicated now, so encryption no longer binds to
+        // (or requires) the account password.
         let mut cfg = full_config();
         cfg.install_type = Some(InstallType::Encrypted);
         cfg.encrypt = true;
         cfg.user = UserAccount::default();
 
-        let err = build_request(&cfg).unwrap_err();
-        assert_eq!(err, "Full name is required");
+        let req = build_request(&cfg).unwrap();
+        assert!(req.encrypt);
+        assert_eq!(req.encryption_key, "correct horse battery staple");
+        assert_eq!(req.username, "");
     }
 
     #[test]

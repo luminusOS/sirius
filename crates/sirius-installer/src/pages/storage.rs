@@ -11,19 +11,21 @@ use super::{PageOutput, StorageSelection};
 use crate::backend::storage::{scan_disks, DiskSnapshot};
 use crate::config_model::{InstallType, PartitionPlan};
 use draft::{PartitionDraft, PartitionSpec};
+use gettextrs::gettext;
 use partition_dialog::{DialogTarget, EditSource};
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct StoragePage {
     root: gtk::ScrolledWindow,
-    lang: crate::i18n::Lang,
     uefi: bool,
     disks: Vec<DiskSnapshot>,
     selected: Option<usize>,
     manual: bool,
     encrypt: bool,
     tpm: bool,
+    encryption_passphrase: String,
+    encryption_passphrase_confirm: String,
     plan: Option<PartitionPlan>,
     error: Option<String>,
     /// Modal dialog showing the disk-usage map and volumes/partitions list.
@@ -34,13 +36,6 @@ pub struct StoragePage {
     /// folded into `plan` and emitted immediately.
     draft: Option<PartitionDraft>,
     draft_error: Option<String>,
-    /// Dev aid (`SIRIUS_DEV_SHOW_ALL_DISKS`): lets in-use disks be picked in
-    /// the selector, for testing the UI on a host where the only disk is the
-    /// one you're booted from. This page never writes to disk regardless —
-    /// see the module doc comment — so it's safe to browse and edit plans
-    /// against an in-use disk; only an actual install (a separate, later
-    /// confirmation) would touch it.
-    show_in_use_disks: bool,
 }
 
 #[derive(Debug)]
@@ -50,6 +45,8 @@ pub enum StorageMsg {
     ResetDraft,
     ToggleEncrypt(bool),
     ToggleTpm(bool),
+    SetEncryptionPassphrase(String),
+    SetEncryptionPassphraseConfirm(String),
     OpenEditor,
     CloseEditor,
     EditorClosed,
@@ -70,7 +67,9 @@ pub enum StorageMsg {
         id: String,
         spec: PartitionSpec,
     },
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 pub struct StoragePageWidgets {
@@ -101,27 +100,21 @@ impl SimpleComponent for StoragePage {
             Ok(disks) => (disks, None),
             Err(error) => (Vec::new(), Some(error)),
         };
-        // Dev aid: SIRIUS_DEV_SHOW_ALL_DISKS lets in-use disks be selected in
-        // the UI too, for testing the storage page on a host where the real
-        // disk is always in use (mounted root/swap/etc). No disk write ever
-        // happens from this page, so this is safe outside of an actual
-        // install run — see the module doc comment.
-        let show_in_use_disks = std::env::var("SIRIUS_DEV_SHOW_ALL_DISKS").is_ok();
         let mut model = StoragePage {
             root: root.clone(),
-            lang: crate::i18n::Lang::En,
             uefi: std::path::Path::new("/sys/firmware/efi").exists(),
             disks,
             selected: None,
             manual: false,
             encrypt: false,
             tpm: false,
+            encryption_passphrase: String::new(),
+            encryption_passphrase_confirm: String::new(),
             plan: None,
             error,
             editor: None,
             draft: None,
             draft_error: None,
-            show_in_use_disks,
         };
         // The ComboRow widget always renders position 0 as visually selected
         // as soon as it has a model, even though nothing has notified us of a
@@ -129,7 +122,7 @@ impl SimpleComponent for StoragePage {
         // widget agree from the very first frame; otherwise the lower page
         // section stays hidden and, with a single available disk, the user
         // has no other position to pick and can never unstick it.
-        if let Some(index) = first_available_disk(&model.disks, model.show_in_use_disks) {
+        if let Some(index) = first_available_disk(&model.disks) {
             model.select_disk(index);
             model.emit(&sender);
         }
@@ -151,6 +144,8 @@ impl SimpleComponent for StoragePage {
                 self.manual = manual;
                 self.encrypt = false;
                 self.tpm = false;
+                self.encryption_passphrase.clear();
+                self.encryption_passphrase_confirm.clear();
                 if manual {
                     self.rebuild_draft();
                 } else {
@@ -168,6 +163,8 @@ impl SimpleComponent for StoragePage {
                 self.encrypt = enabled;
                 if !enabled {
                     self.tpm = false;
+                    self.encryption_passphrase.clear();
+                    self.encryption_passphrase_confirm.clear();
                 }
                 self.emit(&sender);
             }
@@ -175,12 +172,20 @@ impl SimpleComponent for StoragePage {
                 self.tpm = enabled && self.encrypt;
                 self.emit(&sender);
             }
+            StorageMsg::SetEncryptionPassphrase(passphrase) => {
+                self.encryption_passphrase = passphrase;
+                self.emit(&sender);
+            }
+            StorageMsg::SetEncryptionPassphraseConfirm(confirm) => {
+                self.encryption_passphrase_confirm = confirm;
+                self.emit(&sender);
+            }
             StorageMsg::OpenEditor => {
                 if !self.manual || self.disk().is_none() || self.editor.is_some() {
                     return;
                 }
                 let dialog = adw::Dialog::builder()
-                    .title(crate::i18n::tr(self.lang, "storage.editor"))
+                    .title(gettext("Partition editor"))
                     .content_width(760)
                     .content_height(640)
                     .build();
@@ -211,20 +216,11 @@ impl SimpleComponent for StoragePage {
                         &sender,
                         DialogTarget::Create(region, free),
                         None,
-                        self.lang,
                     );
                 }
             }
             StorageMsg::Create { region, spec } => {
-                self.draft_error = self
-                    .draft
-                    .as_mut()
-                    .ok_or_else(|| "partition draft is not available".to_string())
-                    .and_then(|draft| draft.create(region, spec))
-                    .err();
-                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
-                self.refresh_editor(&sender);
-                self.emit(&sender);
+                self.mutate_draft(&sender, |draft| draft.create(region, spec));
             }
             StorageMsg::OpenEdit(partition) => {
                 if let Some(existing) = self.disk().and_then(|d| d.partitions.get(partition)) {
@@ -233,42 +229,17 @@ impl SimpleComponent for StoragePage {
                         &sender,
                         DialogTarget::Edit(partition),
                         Some(EditSource::Existing(existing)),
-                        self.lang,
                     );
                 }
             }
             StorageMsg::Edit { partition, spec } => {
-                self.draft_error = self
-                    .draft
-                    .as_mut()
-                    .ok_or_else(|| "partition draft is not available".to_string())
-                    .and_then(|draft| draft.edit_existing(partition, spec))
-                    .err();
-                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
-                self.refresh_editor(&sender);
-                self.emit(&sender);
+                self.mutate_draft(&sender, |draft| draft.edit_existing(partition, spec));
             }
             StorageMsg::Delete(partition) => {
-                self.draft_error = self
-                    .draft
-                    .as_mut()
-                    .ok_or_else(|| "partition draft is not available".to_string())
-                    .and_then(|draft| draft.delete_existing(partition))
-                    .err();
-                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
-                self.refresh_editor(&sender);
-                self.emit(&sender);
+                self.mutate_draft(&sender, |draft| draft.delete_existing(partition));
             }
             StorageMsg::DeletePlanned(id) => {
-                self.draft_error = self
-                    .draft
-                    .as_mut()
-                    .ok_or_else(|| "partition draft is not available".to_string())
-                    .and_then(|draft| draft.delete_planned(&id))
-                    .err();
-                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
-                self.refresh_editor(&sender);
-                self.emit(&sender);
+                self.mutate_draft(&sender, |draft| draft.delete_planned(&id));
             }
             StorageMsg::OpenEditPlanned(id) => {
                 if let Some(details) = self.draft.as_ref().and_then(|d| d.planned_details(&id)) {
@@ -283,22 +254,13 @@ impl SimpleComponent for StoragePage {
                             mount_point: &details.mount_point,
                             label: &details.label,
                         }),
-                        self.lang,
                     );
                 }
             }
             StorageMsg::EditPlanned { id, spec } => {
-                self.draft_error = self
-                    .draft
-                    .as_mut()
-                    .ok_or_else(|| "partition draft is not available".to_string())
-                    .and_then(|draft| draft.edit_planned(&id, spec))
-                    .err();
-                self.plan = self.draft.as_ref().map(|d| d.plan().clone());
-                self.refresh_editor(&sender);
-                self.emit(&sender);
+                self.mutate_draft(&sender, |draft| draft.edit_planned(&id, spec));
             }
-            StorageMsg::SetLang(lang) => self.lang = lang,
+            StorageMsg::Retranslate => {}
         }
     }
 
@@ -310,12 +272,13 @@ impl SimpleComponent for StoragePage {
                 manual: self.manual,
                 encrypt: self.encrypt,
                 tpm: self.tpm,
+                encryption_passphrase: &self.encryption_passphrase,
+                encryption_passphrase_confirm: &self.encryption_passphrase_confirm,
                 draft: self.draft.as_ref(),
                 draft_error: self.draft_error.as_deref(),
                 uefi: self.uefi,
                 error: self.error.as_deref(),
-                lang: self.lang,
-                show_in_use_disks: self.show_in_use_disks,
+                editor_open: self.editor.is_some(),
             },
             &sender,
         );
@@ -325,11 +288,10 @@ impl SimpleComponent for StoragePage {
 }
 
 /// Index of the first disk that is available for selection (not already in
-/// use, unless `show_in_use` overrides that), if any. Pure helper shared by
-/// `init()` and the `Selected` handler so there is a single place that
-/// decides what "the default disk" means.
-fn first_available_disk(disks: &[DiskSnapshot], show_in_use: bool) -> Option<usize> {
-    disks.iter().position(|disk| show_in_use || !disk.in_use)
+/// use), if any. Pure helper shared by `init()` and the `Selected` handler
+/// so there is a single place that decides what "the default disk" means.
+fn first_available_disk(disks: &[DiskSnapshot]) -> Option<usize> {
+    disks.iter().position(|disk| !disk.in_use)
 }
 
 impl StoragePage {
@@ -372,6 +334,26 @@ impl StoragePage {
         }
     }
 
+    /// Apply a mutation to the partition draft: fold the error (if any) into
+    /// `draft_error`, mirror the draft into `plan`, refresh the editor, and
+    /// re-emit the selection. Shared by every draft-mutating message so they
+    /// all fail and report the same way.
+    fn mutate_draft(
+        &mut self,
+        sender: &ComponentSender<Self>,
+        mutation: impl FnOnce(&mut PartitionDraft) -> Result<(), String>,
+    ) {
+        self.draft_error = self
+            .draft
+            .as_mut()
+            .ok_or_else(|| "partition draft is not available".to_string())
+            .and_then(mutation)
+            .err();
+        self.plan = self.draft.as_ref().map(|d| d.plan().clone());
+        self.refresh_editor(sender);
+        self.emit(sender);
+    }
+
     fn reset_plan(&mut self) {
         self.draft = None;
         self.draft_error = None;
@@ -387,7 +369,7 @@ impl StoragePage {
 
     /// Rebuild the editor dialog's content from the current draft, if the
     /// dialog is open. Called after every draft mutation (in addition to
-    /// `emit`) and from `update_view` so a full re-render (e.g. `SetLang`)
+    /// `emit`) and from `update_view` so a full re-render (e.g. `Retranslate`)
     /// also keeps the modal in sync. No-op when the editor is closed.
     fn refresh_editor(&self, sender: &ComponentSender<Self>) {
         let (Some(dialog), Some(disk)) = (&self.editor, self.disk()) else {
@@ -399,7 +381,6 @@ impl StoragePage {
             self.draft_error.as_deref(),
             self.uefi,
             sender,
-            self.lang,
         )));
     }
 
@@ -435,7 +416,9 @@ impl StoragePage {
                 install_type,
                 encrypt: self.encrypt,
                 tpm: self.tpm,
-                partition_plan: self.manual.then(|| self.plan.clone()).flatten(),
+                encryption_passphrase: self.encryption_passphrase.clone(),
+                encryption_passphrase_confirm: self.encryption_passphrase_confirm.clone(),
+                partition_plan: if self.manual { self.plan.clone() } else { None },
             }))
             .ok();
     }
@@ -461,19 +444,19 @@ mod tests {
     #[test]
     fn first_available_disk_picks_the_first_non_in_use_disk() {
         let disks = vec![disk("/dev/sda", true), disk("/dev/sdb", false)];
-        assert_eq!(first_available_disk(&disks, false), Some(1));
+        assert_eq!(first_available_disk(&disks), Some(1));
     }
 
     #[test]
     fn first_available_disk_is_none_when_everything_is_in_use() {
         let disks = vec![disk("/dev/sda", true), disk("/dev/sdb", true)];
-        assert_eq!(first_available_disk(&disks, false), None);
+        assert_eq!(first_available_disk(&disks), None);
     }
 
     #[test]
     fn first_available_disk_is_none_for_empty_disk_list() {
         let disks: Vec<DiskSnapshot> = Vec::new();
-        assert_eq!(first_available_disk(&disks, false), None);
+        assert_eq!(first_available_disk(&disks), None);
     }
 
     #[test]
@@ -483,15 +466,6 @@ mod tests {
         // position. `self.selected` must end up `Some(0)` on init so the
         // model and the freshly built widget agree from the first frame.
         let disks = vec![disk("/dev/sda", false)];
-        assert_eq!(first_available_disk(&disks, false), Some(0));
-    }
-
-    #[test]
-    fn first_available_disk_with_show_in_use_picks_position_zero_even_when_in_use() {
-        // SIRIUS_DEV_SHOW_ALL_DISKS: a dev host's only disk is almost always
-        // in use (it's booted from it) — the override must still resolve to
-        // a selectable default instead of leaving `selected` stuck at `None`.
-        let disks = vec![disk("/dev/sda", true)];
-        assert_eq!(first_available_disk(&disks, true), Some(0));
+        assert_eq!(first_available_disk(&disks), Some(0));
     }
 }

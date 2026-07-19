@@ -3,7 +3,6 @@
 use super::{AppModel, AppMsg};
 use crate::backend::distro::{Bento, Branding};
 use crate::config_model::InstallConfig;
-use crate::i18n::Lang;
 use crate::pages::diagnostics::{DiagnosticsInit, DiagnosticsMsg, DiagnosticsPage};
 use crate::pages::finished::{FinishedMsg, FinishedPage};
 use crate::pages::keyboard::{KeyboardMsg, KeyboardPage};
@@ -91,20 +90,23 @@ impl PageControllers {
         Some(widget)
     }
 
-    pub fn set_lang(&self, lang: Lang) {
-        self.welcome.sender().send(WelcomeMsg::SetLang(lang)).ok();
+    /// Ask every page to rebuild its widgets after a UI language switch.
+    /// Translations are resolved by gettext at render time, so the pages only
+    /// need a nudge; Relm4 runs update_view after each update.
+    pub fn retranslate(&self) {
+        self.welcome.sender().send(WelcomeMsg::Retranslate).ok();
         self.diagnostics
             .sender()
-            .send(DiagnosticsMsg::SetLang(lang))
+            .send(DiagnosticsMsg::Retranslate)
             .ok();
-        self.network.sender().send(NetworkMsg::SetLang(lang)).ok();
-        self.keyboard.sender().send(KeyboardMsg::SetLang(lang)).ok();
-        self.timezone.sender().send(TimezoneMsg::SetLang(lang)).ok();
-        self.storage.sender().send(StorageMsg::SetLang(lang)).ok();
-        self.user.sender().send(UserMsg::SetLang(lang)).ok();
-        self.summary.sender().send(SummaryMsg::SetLang(lang)).ok();
-        self.progress.sender().send(ProgressMsg::SetLang(lang)).ok();
-        self.finished.sender().send(FinishedMsg::SetLang(lang)).ok();
+        self.network.sender().send(NetworkMsg::Retranslate).ok();
+        self.keyboard.sender().send(KeyboardMsg::Retranslate).ok();
+        self.timezone.sender().send(TimezoneMsg::Retranslate).ok();
+        self.storage.sender().send(StorageMsg::Retranslate).ok();
+        self.user.sender().send(UserMsg::Retranslate).ok();
+        self.summary.sender().send(SummaryMsg::Retranslate).ok();
+        self.progress.sender().send(ProgressMsg::Retranslate).ok();
+        self.finished.sender().send(FinishedMsg::Retranslate).ok();
     }
 
     pub fn show_summary(&self, config: InstallConfig) {

@@ -3,84 +3,85 @@
 
 use super::PageOutput;
 use crate::config_model::InstallConfig;
-use crate::i18n::{tr, Lang};
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, ComponentParts, ComponentSender, SimpleComponent};
 
 /// Build the (label, value) pairs shown on the summary page. Rows belonging
 /// to a wizard page that is disabled in `sirius.toml` are omitted — the recap
 /// must only show what the user could actually choose.
-pub fn summary_rows(lang: Lang, cfg: &InstallConfig, pages: &[String]) -> Vec<(String, String)> {
+pub fn summary_rows(cfg: &InstallConfig, pages: &[String]) -> Vec<(String, String)> {
     let on = |page: &str| pages.iter().any(|p| p == page);
     let dash = "—".to_string();
     let mut rows = Vec::new();
     if on("welcome") {
         rows.push((
-            tr(lang, "summary.language").into(),
+            gettext("Language"),
             cfg.locale.clone().unwrap_or_else(|| dash.clone()),
         ));
     }
     if on("keyboard") {
         rows.push((
-            tr(lang, "summary.keyboard").into(),
+            gettext("Keyboard"),
             cfg.keyboard.clone().unwrap_or_else(|| dash.clone()),
         ));
     }
     if on("timezone") {
         rows.push((
-            tr(lang, "summary.timezone").into(),
+            gettext("Time zone"),
             cfg.timezone.clone().unwrap_or_else(|| dash.clone()),
         ));
     }
     if on("storage") {
         rows.push((
-            tr(lang, "summary.disk").into(),
+            gettext("Disk"),
             cfg.destination_disk_name
                 .clone()
                 .or_else(|| cfg.destination_disk.clone())
                 .unwrap_or_else(|| dash.clone()),
         ));
-        rows.push((
-            tr(lang, "summary.encryption").into(),
-            tr(
-                lang,
-                if matches!(
-                    cfg.install_type,
-                    Some(crate::config_model::InstallType::Manual)
-                ) {
-                    "summary.manual"
-                } else if cfg.encrypt {
-                    "summary.enabled"
-                } else {
-                    "summary.disabled"
-                },
-            )
-            .into(),
-        ));
+        let encryption = if matches!(
+            cfg.install_type,
+            Some(crate::config_model::InstallType::Manual)
+        ) {
+            gettext("manual layout")
+        } else if cfg.encrypt {
+            gettext("enabled")
+        } else {
+            gettext("disabled")
+        };
+        rows.push((gettext("Encryption"), encryption));
     }
     if on("user") && !cfg.user.is_empty() {
         rows.push((
-            tr(lang, "summary.user").into(),
+            gettext("User"),
             format!("{} ({})", cfg.user.full_name, cfg.user.username),
         ));
-        rows.push((
-            tr(lang, "summary.hostname").into(),
-            cfg.user.hostname.clone(),
-        ));
+        rows.push((gettext("Hostname"), cfg.user.hostname.clone()));
     }
     rows
 }
 
 pub struct SummaryPage {
-    lang: Lang,
     pages: Vec<String>,
     last_cfg: Option<InstallConfig>,
+}
+
+/// Header text, applied both in `init` and on every `update_view`: gettext
+/// resolves at call time, so re-applying on the `Retranslate` nudge is what
+/// re-renders the header in the new language. One place, no drift between
+/// the two call sites.
+fn apply_header(root: &adw::StatusPage) {
+    root.set_title(&gettext("Ready to install"));
+    root.set_description(Some(&gettext(
+        "Review your choices before writing changes to disk.",
+    )));
 }
 
 #[derive(Debug)]
 pub enum SummaryMsg {
     Show(Box<InstallConfig>),
-    SetLang(Lang),
+    Retranslate,
 }
 
 pub struct SummaryPageWidgets {
@@ -105,12 +106,10 @@ impl SimpleComponent for SummaryPage {
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let model = SummaryPage {
-            lang: Lang::En,
             pages,
             last_cfg: None,
         };
-        root.set_title(tr(model.lang, "summary.title"));
-        root.set_description(Some(tr(model.lang, "summary.desc")));
+        apply_header(&root);
         let widgets = SummaryPageWidgets { root };
         ComponentParts { model, widgets }
     }
@@ -120,20 +119,17 @@ impl SimpleComponent for SummaryPage {
             SummaryMsg::Show(cfg) => {
                 self.last_cfg = Some(*cfg);
             }
-            SummaryMsg::SetLang(l) => self.lang = l,
+            SummaryMsg::Retranslate => {}
         }
     }
 
     fn update_view(&self, widgets: &mut Self::Widgets, sender: ComponentSender<Self>) {
-        widgets.root.set_title(tr(self.lang, "summary.title"));
-        widgets
-            .root
-            .set_description(Some(tr(self.lang, "summary.desc")));
+        apply_header(&widgets.root);
         if let Some(cfg) = &self.last_cfg {
             let content = relm4::gtk::Box::new(relm4::gtk::Orientation::Vertical, 24);
             content.set_width_request(680);
             let group = adw::PreferencesGroup::new();
-            for (label, value) in summary_rows(self.lang, cfg, &self.pages) {
+            for (label, value) in summary_rows(cfg, &self.pages) {
                 let row = adw::ActionRow::new();
                 row.set_title(&label);
                 let value_label = relm4::gtk::Label::builder()
@@ -144,7 +140,7 @@ impl SimpleComponent for SummaryPage {
                 group.add(&row);
             }
             content.append(&group);
-            let install = relm4::gtk::Button::with_label(tr(self.lang, "nav.install"));
+            let install = relm4::gtk::Button::with_label(&gettext("Install"));
             install.add_css_class("suggested-action");
             install.add_css_class("install-pill");
             install.set_halign(relm4::gtk::Align::Center);
@@ -179,7 +175,7 @@ mod tests {
             },
             ..Default::default()
         };
-        let rows = summary_rows(crate::i18n::Lang::En, &cfg, &all_pages());
+        let rows = summary_rows(&cfg, &all_pages());
         let text = rows
             .iter()
             .map(|(l, v)| format!("{l}: {v}"))
@@ -193,7 +189,7 @@ mod tests {
     #[test]
     fn summary_skips_user_rows_when_empty() {
         let cfg = InstallConfig::default();
-        let rows = summary_rows(crate::i18n::Lang::En, &cfg, &all_pages());
+        let rows = summary_rows(&cfg, &all_pages());
         assert_eq!(rows.len(), 5);
         assert!(!rows.iter().any(|(l, _)| l == "User"));
     }
@@ -208,7 +204,7 @@ mod tests {
             destination_disk: Some("/dev/sda".into()),
             ..Default::default()
         };
-        let labels: Vec<String> = summary_rows(crate::i18n::Lang::En, &cfg, &pages)
+        let labels: Vec<String> = summary_rows(&cfg, &pages)
             .into_iter()
             .map(|(l, _)| l)
             .collect();

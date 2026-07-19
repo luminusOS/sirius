@@ -4,17 +4,22 @@
 
 use super::PageOutput;
 use crate::backend::distro::Branding;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
-pub struct WelcomePage {
-    lang: crate::i18n::Lang,
-}
+/// UI languages offered on the welcome page: (locale, native name).
+/// The locale also flows into the install config unchanged.
+const LANGUAGES: &[(&str, &str)] = &[("en_US", "English (US)"), ("pt_BR", "Português (BR)")];
+
+pub struct WelcomePage;
 
 #[derive(Debug)]
 pub enum WelcomeMsg {
     LocaleChosen(String),
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 /// Apply `[branding]` to the status page: prefer the logo file, then the
@@ -41,9 +46,9 @@ impl SimpleComponent for WelcomePage {
     view! {
         adw::StatusPage {
             #[watch]
-            set_title: crate::i18n::tr(model.lang, "welcome.title"),
+            set_title: gettext("Welcome").as_str(),
             #[watch]
-            set_description: Some(crate::i18n::tr(model.lang, "welcome.desc")),
+            set_description: Some(gettext("This assistant will guide you through installation.").as_str()),
 
             #[wrap(Some)]
             set_child = &gtk::Box {
@@ -53,9 +58,14 @@ impl SimpleComponent for WelcomePage {
 
                 gtk::DropDown {
                     set_width_request: 240,
-                    set_model: Some(&gtk::StringList::new(&["English (US)", "Português (BR)"])),
+                    set_model: Some(&gtk::StringList::new(
+                        &LANGUAGES.iter().map(|(_, name)| *name).collect::<Vec<_>>(),
+                    )),
                     connect_selected_notify[sender] => move |dd| {
-                        let locale = if dd.selected() == 1 { "pt_BR" } else { "en_US" };
+                        let locale = LANGUAGES
+                            .get(dd.selected() as usize)
+                            .map(|(locale, _)| *locale)
+                            .unwrap_or("en_US");
                         sender.input(WelcomeMsg::LocaleChosen(locale.to_string()));
                     },
                 },
@@ -68,9 +78,7 @@ impl SimpleComponent for WelcomePage {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = WelcomePage {
-            lang: crate::i18n::Lang::En,
-        };
+        let model = WelcomePage;
         let widgets = view_output!();
         apply_branding(&root, &branding);
         sender
@@ -84,9 +92,7 @@ impl SimpleComponent for WelcomePage {
             WelcomeMsg::LocaleChosen(locale) => {
                 sender.output(PageOutput::SetLocale(locale)).ok();
             }
-            WelcomeMsg::SetLang(l) => {
-                self.lang = l;
-            }
+            WelcomeMsg::Retranslate => {}
         }
     }
 }

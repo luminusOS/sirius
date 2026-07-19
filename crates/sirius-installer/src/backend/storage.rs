@@ -227,14 +227,6 @@ trait UDisksPartitionTable {
     ) -> zbus::Result<OwnedObjectPath>;
 }
 
-#[zbus::proxy(
-    interface = "org.freedesktop.UDisks2.Filesystem",
-    default_service = "org.freedesktop.UDisks2"
-)]
-trait UDisksFilesystem {
-    fn set_label(&self, label: &str, options: &HashMap<String, OwnedValue>) -> zbus::Result<()>;
-}
-
 /// Validate the topology again and execute a staged manual plan through
 /// UDisks2. This function must only run in the pkexec child.
 pub fn apply_partition_plan(
@@ -329,18 +321,6 @@ pub fn apply_partition_plan(
                     .format(filesystem, &options)
                     .map_err(|e| format!("cannot format {path}: {e}"))?;
             }
-            PartitionOperation::SetLabel { target, label } => {
-                let path = resolve_ref(target, &planned_devices)?;
-                let object = object_for_device(&connection, &path)?;
-                let filesystem = UDisksFilesystemProxyBlocking::builder(&connection)
-                    .path(object)
-                    .map_err(|e| e.to_string())?
-                    .build()
-                    .map_err(|e| format!("cannot access filesystem {path}: {e}"))?;
-                filesystem
-                    .set_label(label, &empty)
-                    .map_err(|e| format!("cannot label {path}: {e}"))?;
-            }
             PartitionOperation::Delete { .. } | PartitionOperation::Create { .. } => {}
         }
     }
@@ -409,9 +389,9 @@ fn validate_topology(plan: &PartitionPlan, disk: &DiskSnapshot) -> Result<(), St
 
 fn operation_refs(operation: &PartitionOperation) -> Vec<&PartitionRef> {
     match operation {
-        PartitionOperation::Delete { target }
-        | PartitionOperation::Format { target, .. }
-        | PartitionOperation::SetLabel { target, .. } => vec![target],
+        PartitionOperation::Delete { target } | PartitionOperation::Format { target, .. } => {
+            vec![target]
+        }
         PartitionOperation::Create { .. } => vec![],
     }
 }

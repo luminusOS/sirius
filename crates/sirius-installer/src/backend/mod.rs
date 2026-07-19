@@ -5,15 +5,11 @@
 //!
 //! # Pinned upstream
 //!
-//! `libreadymade` is pinned to FyraLabs/readymade `main` HEAD
-//! `ccdf092314b2241ec13ede2381d8174b051d5d09` (confirmed 2026-06-09).
-//!
-//! At that HEAD the sibling crate `filesystem-table` (v0.1.2) does not build:
-//! a bad clippy autofix at `crates/filesystem-table/lib.rs:306` compared a
-//! `PathBuf` (`dev.fullname`) against a `String` (`device_spec_og`). We override
-//! it with a vendored, fixed copy at `vendor/filesystem-table` via
-//! `[patch."https://github.com/FyraLabs/readymade.git"]` in the workspace root
-//! `Cargo.toml`. The fix restores `dev.fullname == PathBuf::from(&device_spec_og)`.
+//! `libreadymade` is pinned to the LuminusOS fork of readymade, rev
+//! `c58f56daa25463c660a1488bce5e5a45f0328c2b`, while upstream fixes required
+//! by Sirius are pending (see the workspace `Cargo.toml`). The fork also
+//! carries the `filesystem-table` build fix that previously required a
+//! vendored `[patch]` override.
 //!
 //! # Confirmed `libreadymade` execution API (at the pinned SHA)
 //!

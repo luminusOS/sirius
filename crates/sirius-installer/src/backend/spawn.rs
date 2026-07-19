@@ -4,6 +4,7 @@
 
 use crate::backend::adapter::InstallRequest;
 use crate::backend::Progress;
+use gettextrs::gettext;
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
@@ -29,12 +30,14 @@ fn is_root() -> bool {
 /// dialog dismissed) and 127 (not authorized / no polkit agent / exec failed).
 fn explain_exit(code: Option<i32>, via_pkexec: bool) -> String {
     match (code, via_pkexec) {
-        (Some(126), true) => "authorization dialog was dismissed (pkexec exit 126)".into(),
-        (Some(127), true) => "polkit authorization failed (pkexec exit 127) — \
-             is a polkit authentication agent running in this session?"
-            .into(),
-        (Some(c), _) => format!("installer exited with status {c}"),
-        (None, _) => "installer was killed by a signal".into(),
+        (Some(126), true) => gettext("authorization dialog was dismissed (pkexec exit 126)"),
+        (Some(127), true) => {
+            gettext("polkit authorization failed (pkexec exit 127) — is a polkit authentication agent running in this session?")
+        }
+        (Some(c), _) => {
+            gettext("installer exited with status {code}").replace("{code}", &c.to_string())
+        }
+        (None, _) => gettext("installer was killed by a signal"),
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::check::{Check, Status};
+use gettextrs::gettext;
 use std::path::Path;
 
 /// Pure UEFI check: passes when the EFI firmware sysfs path exists.
@@ -6,16 +7,16 @@ pub fn probe_uefi(efi_path: &Path) -> Check {
     if efi_path.exists() {
         Check::new(
             "uefi",
-            "UEFI firmware",
+            &gettext("UEFI firmware"),
             Status::Pass,
-            "EFI firmware detected",
+            gettext("EFI firmware detected"),
         )
     } else {
         Check::new(
             "uefi",
-            "UEFI firmware",
+            &gettext("UEFI firmware"),
             Status::Fail,
-            "System booted in legacy BIOS mode; UEFI is required",
+            gettext("System booted in legacy BIOS mode; UEFI is required"),
         )
     }
 }
@@ -35,16 +36,20 @@ pub fn probe_ram(total_bytes: u64, min_gib: u64) -> Check {
     if total_bytes >= min_bytes {
         Check::new(
             "ram",
-            "Memory",
+            &gettext("Memory"),
             Status::Pass,
-            format!("{total_gib:.1} GiB available (need {min_gib} GiB)"),
+            gettext("{available} GiB available (need {required} GiB)")
+                .replace("{available}", &format!("{total_gib:.1}"))
+                .replace("{required}", &min_gib.to_string()),
         )
     } else {
         Check::new(
             "ram",
-            "Memory",
+            &gettext("Memory"),
             Status::Fail,
-            format!("{total_gib:.1} GiB available, {min_gib} GiB required"),
+            gettext("{available} GiB available, {required} GiB required")
+                .replace("{available}", &format!("{total_gib:.1}"))
+                .replace("{required}", &min_gib.to_string()),
         )
     }
 }
@@ -54,20 +59,24 @@ pub fn probe_disk_space(largest_disk_bytes: u64, required_bytes: u64) -> Check {
     if largest_disk_bytes >= required_bytes {
         Check::new(
             "disk_space",
-            "Disk space",
+            &gettext("Disk space"),
             Status::Pass,
-            format!(
-                "{} GiB disk available (need {} GiB)",
-                largest_disk_bytes / (1024 * 1024 * 1024),
-                required_bytes / (1024 * 1024 * 1024)
-            ),
+            gettext("{available} GiB disk available (need {required} GiB)")
+                .replace(
+                    "{available}",
+                    &(largest_disk_bytes / (1024 * 1024 * 1024)).to_string(),
+                )
+                .replace(
+                    "{required}",
+                    &(required_bytes / (1024 * 1024 * 1024)).to_string(),
+                ),
         )
     } else {
         Check::new(
             "disk_space",
-            "Disk space",
+            &gettext("Disk space"),
             Status::Fail,
-            "No disk large enough for the install image",
+            gettext("No disk large enough for the install image"),
         )
     }
 }
@@ -76,18 +85,25 @@ pub fn probe_disk_space(largest_disk_bytes: u64, required_bytes: u64) -> Check {
 /// Informational: warns rather than fails so installs still proceed.
 pub fn probe_secure_boot(enabled: Option<bool>) -> Check {
     match enabled {
-        Some(true) => Check::new("secure_boot", "Secure Boot", Status::Pass, "enabled"),
+        Some(true) => Check::new(
+            "secure_boot",
+            &gettext("Secure Boot"),
+            Status::Pass,
+            // Distinct msgid on purpose: the summary page already translates
+            // "enabled" in the feminine (encryption) context.
+            gettext("Secure Boot is enabled"),
+        ),
         Some(false) => Check::new(
             "secure_boot",
-            "Secure Boot",
+            &gettext("Secure Boot"),
             Status::Warn,
-            "disabled; recommended for a secure system",
+            gettext("disabled; recommended for a secure system"),
         ),
         None => Check::new(
             "secure_boot",
-            "Secure Boot",
+            &gettext("Secure Boot"),
             Status::Warn,
-            "state could not be determined",
+            gettext("state could not be determined"),
         ),
     }
 }
@@ -98,15 +114,15 @@ pub fn probe_virt(detected: Option<&str>) -> Check {
     match detected {
         None => Check::new(
             "virt",
-            "Virtualization",
+            &gettext("Virtualization"),
             Status::Pass,
-            "running on bare metal",
+            gettext("running on bare metal"),
         ),
         Some(kind) => Check::new(
             "virt",
-            "Virtualization",
+            &gettext("Virtualization"),
             Status::Warn,
-            format!("running inside a virtual machine ({kind})"),
+            gettext("running inside a virtual machine ({kind})").replace("{kind}", kind),
         ),
     }
 }
@@ -114,13 +130,18 @@ pub fn probe_virt(detected: Option<&str>) -> Check {
 /// Pure network check.
 pub fn probe_network(online: bool) -> Check {
     if online {
-        Check::new("network", "Network", Status::Pass, "connected")
+        Check::new(
+            "network",
+            &gettext("Network"),
+            Status::Pass,
+            gettext("connected"),
+        )
     } else {
         Check::new(
             "network",
-            "Network",
+            &gettext("Network"),
             Status::Warn,
-            "no connection; some post-install steps may be skipped",
+            gettext("no connection; some post-install steps may be skipped"),
         )
     }
 }

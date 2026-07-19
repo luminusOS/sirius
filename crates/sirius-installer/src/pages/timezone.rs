@@ -1,6 +1,7 @@
 //! Timezone page: lets the user select a time zone from a dropdown.
 
 use super::PageOutput;
+use gettextrs::gettext;
 use relm4::adw::prelude::*;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
@@ -11,14 +12,14 @@ const ZONES: &[&str] = &[
     "UTC",
 ];
 
-pub struct TimezonePage {
-    lang: crate::i18n::Lang,
-}
+pub struct TimezonePage;
 
 #[derive(Debug)]
 pub enum TimezoneMsg {
     Chosen(usize),
-    SetLang(crate::i18n::Lang),
+    /// The UI language changed; gettext resolves strings at render time, so a
+    /// bare re-render (Relm4 runs update_view after update) is enough.
+    Retranslate,
 }
 
 #[relm4::component(pub)]
@@ -31,7 +32,7 @@ impl SimpleComponent for TimezonePage {
         adw::StatusPage {
             set_icon_name: Some("alarm-symbolic"),
             #[watch]
-            set_title: crate::i18n::tr(model.lang, "timezone.title"),
+            set_title: gettext("Time zone").as_str(),
             #[wrap(Some)]
             set_child = &gtk::DropDown {
                 set_halign: gtk::Align::Center,
@@ -51,9 +52,7 @@ impl SimpleComponent for TimezonePage {
         sender
             .output(PageOutput::SetTimezone(ZONES[0].to_string()))
             .ok();
-        let model = TimezonePage {
-            lang: crate::i18n::Lang::En,
-        };
+        let model = TimezonePage;
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
@@ -66,7 +65,7 @@ impl SimpleComponent for TimezonePage {
                     .output(PageOutput::SetTimezone(zone.to_string()))
                     .ok();
             }
-            TimezoneMsg::SetLang(l) => self.lang = l,
+            TimezoneMsg::Retranslate => {}
         }
     }
 }

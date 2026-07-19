@@ -1,5 +1,6 @@
 //! The shared installer state collected across wizard pages.
 
+use gettextrs::gettext;
 use serde::{Deserialize, Serialize};
 
 /// How the target disk should be laid out.
@@ -49,10 +50,6 @@ pub enum PartitionOperation {
     Format {
         target: PartitionRef,
         filesystem: String,
-        label: String,
-    },
-    SetLabel {
-        target: PartitionRef,
         label: String,
     },
 }
@@ -129,9 +126,6 @@ impl PartitionPlan {
                         return Err("partition labels cannot contain NUL bytes".into());
                     }
                 }
-                PartitionOperation::SetLabel { label, .. } if label.contains('\0') => {
-                    return Err("partition labels cannot contain NUL bytes".into())
-                }
                 _ => {}
             }
         }
@@ -158,8 +152,7 @@ impl PartitionPlan {
                     target: PartitionRef::Planned { .. },
                 } => return Err("a partition cannot be deleted before it is created".into()),
                 PartitionOperation::Delete { target }
-                | PartitionOperation::Format { target, .. }
-                | PartitionOperation::SetLabel { target, .. } => {
+                | PartitionOperation::Format { target, .. } => {
                     validate_reference(target, &created, self.disk_size_bytes)?
                 }
                 PartitionOperation::Create { .. } => {}
@@ -306,8 +299,37 @@ pub struct InstallConfig {
     pub install_type: Option<InstallType>,
     pub encrypt: bool,
     pub tpm: bool,
+    /// Dedicated LUKS passphrase collected on the storage page. Never
+    /// serialized (like the account password): it only crosses the privilege
+    /// boundary inside `InstallRequest::encryption_key`.
+    #[serde(skip)]
+    pub encryption_passphrase: String,
+    #[serde(skip)]
+    pub encryption_passphrase_confirm: String,
     pub partition_plan: Option<PartitionPlan>,
     pub user: UserAccount,
+}
+
+/// Validate a dedicated LUKS passphrase pair. Shared by the storage page
+/// (inline hint), the Next-gate, and `build_request`.
+pub fn validate_encryption_passphrase(passphrase: &str, confirm: &str) -> Result<(), String> {
+    if passphrase.len() < 8 {
+        return Err(gettext("Passphrase must be at least 8 characters"));
+    }
+    if passphrase != confirm {
+        return Err(gettext("Passphrases do not match"));
+    }
+    Ok(())
+}
+
+impl InstallConfig {
+    /// The collected passphrase pair, valid only when encryption is enabled.
+    pub fn validate_encryption(&self) -> Result<(), String> {
+        validate_encryption_passphrase(
+            &self.encryption_passphrase,
+            &self.encryption_passphrase_confirm,
+        )
+    }
 }
 
 impl UserAccount {
@@ -323,17 +345,19 @@ impl UserAccount {
     /// Validate the account fields, returning a human-readable error if invalid.
     pub fn validate(&self) -> Result<(), String> {
         if self.full_name.trim().is_empty() {
-            return Err("Full name is required".into());
+            return Err(gettext("Full name is required"));
         }
         if self.username.is_empty() {
-            return Err("Username is required".into());
+            return Err(gettext("Username is required"));
         }
         if !self
             .username
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
         {
-            return Err("Username may only contain lowercase letters, digits, '_' and '-'".into());
+            return Err(gettext(
+                "Username may only contain lowercase letters, digits, '_' and '-'",
+            ));
         }
         if self
             .username
@@ -341,16 +365,16 @@ impl UserAccount {
             .next()
             .is_none_or(|c| !c.is_ascii_lowercase())
         {
-            return Err("Username must start with a lowercase letter".into());
+            return Err(gettext("Username must start with a lowercase letter"));
         }
         if self.password.len() < 8 {
-            return Err("Password must be at least 8 characters".into());
+            return Err(gettext("Password must be at least 8 characters"));
         }
         if self.password != self.password_confirm {
-            return Err("Passwords do not match".into());
+            return Err(gettext("Passwords do not match"));
         }
         if self.hostname.trim().is_empty() {
-            return Err("Hostname is required".into());
+            return Err(gettext("Hostname is required"));
         }
         Ok(())
     }

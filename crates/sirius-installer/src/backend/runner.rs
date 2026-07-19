@@ -10,6 +10,7 @@
 use crate::backend::adapter::InstallRequest;
 use crate::backend::distro::DistroDescriptor;
 use crate::backend::Progress;
+use gettextrs::gettext;
 use libreadymade::playbook::{Playbook, PlaybookProgress};
 use std::io::{Read, Write};
 
@@ -28,11 +29,7 @@ fn emit(p: &Progress) {
 /// Translate libreadymade's progress into Sirius's decoupled `Progress`.
 fn map_progress(p: PlaybookProgress) -> Progress {
     match p {
-        PlaybookProgress::Stage(s) => Progress::Step {
-            fraction: 0.0,
-            message: s,
-        },
-        PlaybookProgress::StageProgress(s) => Progress::Step {
+        PlaybookProgress::Stage(s) | PlaybookProgress::StageProgress(s) => Progress::Step {
             fraction: 0.0,
             message: s,
         },
@@ -42,7 +39,10 @@ fn map_progress(p: PlaybookProgress) -> Progress {
             } else {
                 0.0
             },
-            message: format!("post-install: {name} ({i}/{total})"),
+            message: gettext("post-install: {name} ({index}/{total})")
+                .replace("{name}", &name)
+                .replace("{index}", &i.to_string())
+                .replace("{total}", &total.to_string()),
         },
     }
 }
@@ -53,20 +53,29 @@ fn validate_target_disk(path: &str) -> Result<(), String> {
     use std::os::unix::fs::FileTypeExt;
     let p = std::path::Path::new(path);
     if !p.starts_with("/dev") || p.components().any(|c| c == std::path::Component::ParentDir) {
-        return Err(format!("target disk must be an absolute /dev path: {path}"));
+        return Err(
+            gettext("target disk must be an absolute /dev path: {path}").replace("{path}", path)
+        );
     }
-    let meta = std::fs::metadata(p).map_err(|e| format!("cannot stat target disk {path}: {e}"))?;
+    let meta = std::fs::metadata(p).map_err(|e| {
+        gettext("cannot stat target disk {path}: {error}")
+            .replace("{path}", path)
+            .replace("{error}", &e.to_string())
+    })?;
     if !meta.file_type().is_block_device() {
-        return Err(format!("target disk is not a block device: {path}"));
+        return Err(gettext("target disk is not a block device: {path}").replace("{path}", path));
     }
     let disk = crate::backend::storage::scan_disks()?
         .into_iter()
         .find(|disk| disk.path == path)
-        .ok_or_else(|| format!("target is not a supported whole disk: {path}"))?;
+        .ok_or_else(|| {
+            gettext("target is not a supported whole disk: {path}").replace("{path}", path)
+        })?;
     if disk.in_use {
-        return Err(format!(
-            "target disk has mounted filesystems; unmount them before installing: {path}"
-        ));
+        return Err(gettext(
+            "target disk has mounted filesystems; unmount them before installing: {path}",
+        )
+        .replace("{path}", path));
     }
     Ok(())
 }
@@ -84,12 +93,23 @@ pub fn run() -> i32 {
         .read_to_string(&mut input)
         .is_err()
     {
-        return fail("failed to read install request".into());
+        return fail(gettext("failed to read install request"));
     }
     let request: InstallRequest = match serde_json::from_str(&input) {
         Ok(r) => r,
-        Err(e) => return fail(format!("invalid install request: {e}")),
+        Err(e) => {
+            return fail(
+                gettext("invalid install request: {error}").replace("{error}", &e.to_string()),
+            )
+        }
     };
+    // The request's locale is the UI language picked on the welcome page;
+    // pin it so the progress/error lines above follow the same language
+    // (pkexec scrubs the environment, so LANGUAGE does not survive the
+    // privilege boundary on its own).
+    if !request.locale.is_empty() {
+        std::env::set_var("LANGUAGE", &request.locale);
+    }
     if let Err(e) = validate_target_disk(&request.target_disk) {
         return fail(e);
     }
@@ -102,7 +122,12 @@ pub fn run() -> i32 {
         Some(plan) => {
             match crate::backend::storage::apply_partition_plan(plan, &request.target_disk) {
                 Ok(mounts) => Some(mounts),
-                Err(e) => return fail(format!("cannot apply partition plan: {e}")),
+                Err(e) => {
+                    return fail(
+                        gettext("cannot apply partition plan: {error}")
+                            .replace("{error}", &e.to_string()),
+                    )
+                }
             }
         }
         None => None,
@@ -121,8 +146,8 @@ pub fn run() -> i32 {
             emit(&Progress::Finished);
             0
         }
-        Ok(Err(e)) => fail(format!("install failed: {e}")),
-        Err(_) => fail("install thread panicked".into()),
+        Ok(Err(e)) => fail(gettext("install failed: {error}").replace("{error}", &e.to_string())),
+        Err(_) => fail(gettext("install thread panicked")),
     }
 }
 
