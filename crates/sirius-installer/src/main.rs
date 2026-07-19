@@ -11,7 +11,7 @@ mod style;
 
 use clap::{Parser, Subcommand};
 use sirius_diag::config::CONFIG_PATH;
-use sirius_diag::{is_blocked, run_all_checks_with_config, SiriusConfig, SystemFacts};
+use sirius_diag::{SiriusConfig, SystemFacts, is_blocked, run_all_checks_with_config};
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -72,7 +72,7 @@ fn main() -> ExitCode {
 /// done later via the `LANGUAGE` variable (see `app::state`).
 fn init_gettext() {
     use gettextrs::{
-        bind_textdomain_codeset, bindtextdomain, setlocale, textdomain, LocaleCategory,
+        LocaleCategory, bind_textdomain_codeset, bindtextdomain, setlocale, textdomain,
     };
     setlocale(LocaleCategory::LcAll, "");
     bind_textdomain_codeset("sirius", "UTF-8").expect("UTF-8 codeset must be settable");

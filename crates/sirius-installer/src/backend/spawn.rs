@@ -2,8 +2,8 @@
 //! its stdin, and parse its stdout progress lines. When already running as
 //! root (live installers often are), pkexec is skipped entirely.
 
-use crate::backend::adapter::InstallRequest;
 use crate::backend::Progress;
+use crate::backend::adapter::InstallRequest;
 use gettextrs::gettext;
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
@@ -31,9 +31,9 @@ fn is_root() -> bool {
 fn explain_exit(code: Option<i32>, via_pkexec: bool) -> String {
     match (code, via_pkexec) {
         (Some(126), true) => gettext("authorization dialog was dismissed (pkexec exit 126)"),
-        (Some(127), true) => {
-            gettext("polkit authorization failed (pkexec exit 127) — is a polkit authentication agent running in this session?")
-        }
+        (Some(127), true) => gettext(
+            "polkit authorization failed (pkexec exit 127) — is a polkit authentication agent running in this session?",
+        ),
         (Some(c), _) => {
             gettext("installer exited with status {code}").replace("{code}", &c.to_string())
         }

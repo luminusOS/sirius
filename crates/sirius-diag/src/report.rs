@@ -2,7 +2,7 @@
 //! diagnostics page may proceed.
 
 use crate::check::{Check, Status};
-use crate::config::{DiagnosticsConfig, DEFAULT_MIN_RAM_GIB};
+use crate::config::{DEFAULT_MIN_RAM_GIB, DiagnosticsConfig};
 use crate::facts::SystemFacts;
 use crate::probes;
 

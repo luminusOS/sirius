@@ -154,10 +154,12 @@ icon = "explore-symbolic"
         assert_eq!(d.bentos[0].link, "https://example.com");
         // Absent section parses as empty.
         let plain = "[bootc]\nimage = \"x\"\n[disk]\nrepart_dir = \"/r\"\n";
-        assert!(DistroDescriptor::from_toml(plain)
-            .unwrap()
-            .bentos
-            .is_empty());
+        assert!(
+            DistroDescriptor::from_toml(plain)
+                .unwrap()
+                .bentos
+                .is_empty()
+        );
     }
 
     #[test]

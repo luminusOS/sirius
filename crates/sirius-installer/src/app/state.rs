@@ -91,7 +91,8 @@ impl WizardState {
                     self.ui_locale = locale.clone();
                     // glibc gettext consults LANGUAGE on every lookup, so setting
                     // it here plus re-rendering the pages switches the UI language.
-                    std::env::set_var("LANGUAGE", locale);
+                    // SAFETY: single-threaded GTK main loop; no concurrent env reads.
+                    unsafe { std::env::set_var("LANGUAGE", locale) };
                     StateEffect::LanguageChanged
                 } else {
                     StateEffect::None
@@ -219,7 +220,10 @@ mod tests {
         };
         state.apply(PageOutput::SetStorage(selection("hunter2hunter", "typo")));
         assert!(!state.can_proceed());
-        state.apply(PageOutput::SetStorage(selection("hunter2hunter", "hunter2hunter")));
+        state.apply(PageOutput::SetStorage(selection(
+            "hunter2hunter",
+            "hunter2hunter",
+        )));
         assert!(state.can_proceed());
     }
 

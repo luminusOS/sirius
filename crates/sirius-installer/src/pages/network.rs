@@ -1,10 +1,10 @@
 //! Optional Wi-Fi selection and connection page backed by NetworkManager.
 
 use super::PageOutput;
-use crate::backend::network::{connect_wifi, scan_wifi, WifiNetwork, WifiSecurity};
+use crate::backend::network::{WifiNetwork, WifiSecurity, connect_wifi, scan_wifi};
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 
 pub struct NetworkPage {
     root: adw::StatusPage,

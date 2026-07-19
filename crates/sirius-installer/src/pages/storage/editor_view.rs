@@ -2,13 +2,13 @@
 //! list with add/edit/delete actions. Reached from the main storage page via
 //! "Open editor" while manual partitioning is active.
 
-use super::draft::{remaining_region, PartitionDraft};
+use super::draft::{PartitionDraft, remaining_region};
 use super::{StorageMsg, StoragePage};
-use crate::backend::storage::{format_size, DiskSnapshot, PartitionSnapshot};
+use crate::backend::storage::{DiskSnapshot, PartitionSnapshot, format_size};
 use crate::config_model::{PartitionOperation, PartitionPlan, PartitionRef};
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentSender};
+use relm4::{ComponentSender, adw, gtk};
 
 /// Build the editor dialog's content. `draft` drives both the segment map
 /// and the volumes list, and whether the "Discard changes" button appears;

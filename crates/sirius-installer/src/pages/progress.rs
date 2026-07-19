@@ -8,7 +8,7 @@ use super::PageOutput;
 use crate::backend::distro::Bento;
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum ProgressPhase {

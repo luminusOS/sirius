@@ -5,7 +5,7 @@ use super::{StorageMsg, StoragePage};
 use crate::backend::storage::{FreeRegion, PartitionSnapshot};
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentSender};
+use relm4::{ComponentSender, adw, gtk};
 
 const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
 

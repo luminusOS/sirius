@@ -5,7 +5,7 @@ use super::PageOutput;
 use crate::config_model::InstallConfig;
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw};
 
 /// Build the (label, value) pairs shown on the summary page. Rows belonging
 /// to a wizard page that is disabled in `sirius.toml` are omitted — the recap

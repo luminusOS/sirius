@@ -15,7 +15,7 @@ use crate::pages::user::{UserMsg, UserPage};
 use crate::pages::welcome::{WelcomeMsg, WelcomePage};
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
-use relm4::{gtk, ComponentController, ComponentSender, Controller};
+use relm4::{ComponentController, ComponentSender, Controller, gtk};
 
 pub(super) struct PageControllers {
     welcome: Controller<WelcomePage>,

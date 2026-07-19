@@ -6,9 +6,9 @@
 use super::PageOutput;
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 use sirius_diag::config::DiagnosticsConfig;
-use sirius_diag::{run_all_checks_with_config, Status, SystemFacts};
+use sirius_diag::{Status, SystemFacts, run_all_checks_with_config};
 
 /// Init data: diagnostics thresholds and the check ids that hard-gate the install.
 pub struct DiagnosticsInit {

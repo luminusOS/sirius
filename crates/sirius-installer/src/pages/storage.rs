@@ -8,13 +8,13 @@ mod page_view;
 mod partition_dialog;
 
 use super::{PageOutput, StorageSelection};
-use crate::backend::storage::{scan_disks, DiskSnapshot};
+use crate::backend::storage::{DiskSnapshot, scan_disks};
 use crate::config_model::{InstallType, PartitionPlan};
 use draft::{PartitionDraft, PartitionSpec};
 use gettextrs::gettext;
 use partition_dialog::{DialogTarget, EditSource};
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 
 pub struct StoragePage {
     root: gtk::ScrolledWindow,

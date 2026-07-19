@@ -7,9 +7,9 @@
 //! from the root-owned `/etc/sirius/distro.toml` itself, so a caller cannot
 //! make the root process deploy an arbitrary image or layout.
 
+use crate::backend::Progress;
 use crate::backend::adapter::InstallRequest;
 use crate::backend::distro::DistroDescriptor;
-use crate::backend::Progress;
 use gettextrs::gettext;
 use libreadymade::playbook::{Playbook, PlaybookProgress};
 use std::io::{Read, Write};
@@ -100,7 +100,7 @@ pub fn run() -> i32 {
         Err(e) => {
             return fail(
                 gettext("invalid install request: {error}").replace("{error}", &e.to_string()),
-            )
+            );
         }
     };
     // The request's locale is the UI language picked on the welcome page;
@@ -108,7 +108,8 @@ pub fn run() -> i32 {
     // (pkexec scrubs the environment, so LANGUAGE does not survive the
     // privilege boundary on its own).
     if !request.locale.is_empty() {
-        std::env::set_var("LANGUAGE", &request.locale);
+        // SAFETY: set before any thread that reads the environment is spawned.
+        unsafe { std::env::set_var("LANGUAGE", &request.locale) };
     }
     if let Err(e) = validate_target_disk(&request.target_disk) {
         return fail(e);
@@ -126,7 +127,7 @@ pub fn run() -> i32 {
                     return fail(
                         gettext("cannot apply partition plan: {error}")
                             .replace("{error}", &e.to_string()),
-                    )
+                    );
                 }
             }
         }

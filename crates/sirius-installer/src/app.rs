@@ -5,14 +5,14 @@ mod state;
 
 use self::pages::PageControllers;
 use self::state::{StateEffect, WizardState};
+use crate::pages::PageOutput;
 use crate::pages::diagnostics::DiagnosticsInit;
 use crate::pages::progress::ProgressMsg;
-use crate::pages::PageOutput;
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 use sirius_diag::config::CONFIG_PATH;
-use sirius_diag::{is_blocked, run_all_checks_with_config, SiriusConfig, SystemFacts};
+use sirius_diag::{SiriusConfig, SystemFacts, is_blocked, run_all_checks_with_config};
 use std::path::Path;
 
 /// Page ids that actually have mounted widgets in the Stack.

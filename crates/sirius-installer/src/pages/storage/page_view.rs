@@ -3,10 +3,10 @@
 
 use super::draft::PartitionDraft;
 use super::{StorageMsg, StoragePage};
-use crate::backend::storage::{format_size, DiskSnapshot};
+use crate::backend::storage::{DiskSnapshot, format_size};
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentSender};
+use relm4::{ComponentSender, adw, gtk};
 
 pub(super) struct PageView<'a> {
     pub disks: &'a [DiskSnapshot],
@@ -286,7 +286,8 @@ fn automatic_section(state: &PageView<'_>, sender: &ComponentSender<StoragePage>
     // Inline hint explaining why Next is gated; only shown once the user has
     // typed something (an untouched pair stays silent, like the user page).
     if state.encrypt
-        && (!state.encryption_passphrase.is_empty() || !state.encryption_passphrase_confirm.is_empty())
+        && (!state.encryption_passphrase.is_empty()
+            || !state.encryption_passphrase_confirm.is_empty())
     {
         if let Err(error) = crate::config_model::validate_encryption_passphrase(
             state.encryption_passphrase,

@@ -46,8 +46,10 @@ mod tests {
 
     #[test]
     fn log_path_uses_timestamp() {
-        assert!(log_path(1234567890)
-            .to_string_lossy()
-            .ends_with("sirius-install-1234567890.log"));
+        assert!(
+            log_path(1234567890)
+                .to_string_lossy()
+                .ends_with("sirius-install-1234567890.log")
+        );
     }
 }

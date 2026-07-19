@@ -37,11 +37,7 @@ fn parse_commandline_argv(commandline: &str) -> Option<Vec<String>> {
         .filter_map(|arg| arg.to_str().map(str::to_owned))
         .filter(|arg| !FIELD_CODES.contains(&arg.as_str()))
         .collect();
-    if argv.is_empty() {
-        None
-    } else {
-        Some(argv)
-    }
+    if argv.is_empty() { None } else { Some(argv) }
 }
 
 /// Resolves the default browser's argv (with field codes stripped) via the

@@ -5,7 +5,7 @@ use super::PageOutput;
 use crate::config_model::UserAccount;
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 
 #[derive(Default)]
 pub struct UserPage {

@@ -6,7 +6,7 @@ use super::PageOutput;
 use crate::backend::distro::Branding;
 use gettextrs::gettext;
 use relm4::adw::prelude::*;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 
 /// UI languages offered on the welcome page: (locale, native name).
 /// The locale also flows into the install config unchanged.

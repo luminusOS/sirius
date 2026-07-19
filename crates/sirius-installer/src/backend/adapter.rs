@@ -101,9 +101,9 @@ impl InstallRequest {
         distro: &DistroDescriptor,
         manual_mounts: Option<libreadymade::backend::mounts::Mounts>,
     ) -> libreadymade::playbook::Playbook {
+        use libreadymade::backend::postinstall::Module;
         use libreadymade::backend::postinstall::initial_setup::InitialSetup;
         use libreadymade::backend::postinstall::language::Language;
-        use libreadymade::backend::postinstall::Module;
         use libreadymade::backend::provisioners::disk::manual::Manual;
         use libreadymade::backend::provisioners::disk::repart::Repart;
         use libreadymade::backend::provisioners::filesystem::Bootc;

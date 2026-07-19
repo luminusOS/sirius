@@ -224,7 +224,7 @@ fn validate_reference(
             }
         }
         PartitionRef::Planned { id } if !created.contains(id.as_str()) => {
-            return Err(format!("planned partition does not exist: {id}"))
+            return Err(format!("planned partition does not exist: {id}"));
         }
         PartitionRef::Planned { .. } => {}
     }
