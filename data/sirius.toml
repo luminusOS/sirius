@@ -1,6 +1,7 @@
 [pages]
 order = [
   "welcome",
+  "language",
   "diagnostics",
   "network",
   "keyboard",

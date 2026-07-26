@@ -66,6 +66,7 @@ impl SiriusConfig {
 /// Every page Sirius knows how to render. Used to drop unknown ids from config.
 pub const KNOWN_PAGES: &[&str] = &[
     "welcome",
+    "language",
     "diagnostics",
     "network",
     "keyboard",
@@ -116,6 +117,11 @@ impl PagesConfig {
                 resolved.push(m.to_string());
             }
         }
+        // The branded welcome is part of the installer shell, rather than
+        // an optional configuration question. Keep it first even when an old
+        // distro config predates the page or places it elsewhere.
+        resolved.retain(|page| page != "welcome");
+        resolved.insert(0, "welcome".to_string());
         resolved
     }
 }
@@ -252,8 +258,18 @@ min_ram_gib = 3
         };
         assert_eq!(
             pages.resolve(),
-            vec!["storage", "welcome", "progress", "finished"]
+            vec!["welcome", "storage", "progress", "finished"]
         );
+    }
+
+    #[test]
+    fn resolve_always_pins_welcome_before_language() {
+        let pages = PagesConfig {
+            order: vec!["language".into(), "welcome".into(), "storage".into()],
+            disabled: vec!["welcome".into()],
+        };
+        assert_eq!(pages.resolve().first().map(String::as_str), Some("welcome"));
+        assert_eq!(pages.resolve().get(1).map(String::as_str), Some("language"));
     }
 
     #[test]

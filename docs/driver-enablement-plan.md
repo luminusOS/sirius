@@ -12,7 +12,7 @@ rest of the installer is.
 Hard constraints:
 
 - LuminusOS is immutable bootc. Install is a `bootc install to-filesystem` of the
-  embedded payload (`crates/sirius-installer/src/backend/adapter.rs:105`).
+  embedded payload (`crates/sirius-backend/src/install.rs`).
 - The **live ISO has no `rpm-ostree`** (removed in `images/editions/core/Containerfile`),
   but it has `podman`, `dnf`, `bootc`. The payload is embedded as
   `containers-storage:@WORKSTATION_IMAGE@` in `/etc/sirius/distro.toml`.
@@ -52,8 +52,8 @@ Surface in `sirius diag --json` for debugging (extend `report.rs` / `main.rs`).
 
 Profiles live in the root-owned descriptor (`/etc/sirius/distro.toml`), never
 trusted from the unprivileged request — same boundary as the bootc image
-(`adapter.rs:5-11`). Add a `[[driver_profile]]` array; structs in
-`crates/sirius-installer/src/backend/distro.rs` (`DriverProfile`, `ProfileMatch`,
+(`sirius-core/src/distro.rs`). Add a `[[driver_profile]]` array; structs in
+`crates/sirius-core/src/distro.rs` (`DriverProfile`, `ProfileMatch`,
 `ProfileRepo`):
 
 ```toml
@@ -91,10 +91,10 @@ New configurable page `drivers`, placed after `partition`, before `summary`:
 - Register in known-pages (`crates/sirius-diag/src/config.rs`), default order
   (`navigator.rs` / `app.rs`), `pages/mod.rs`, and add En + PtBr keys to `i18n.rs`.
   Skippable via `sirius.toml` `pages.disabled`, like the rest.
-- `InstallConfig` (`config_model.rs`) gains `driver_profiles: Vec<String>`;
+- `InstallConfig` (`sirius-core/src/install.rs`) gains `driver_profiles: Vec<String>`;
   `apply_page_output` stores it; gate is trivially true.
 
-### 4. Request + privileged resolve — `adapter.rs`, `runner.rs`
+### 4. Request + privileged resolve — `install.rs`, `runner.rs`
 
 - `InstallRequest` gains `driver_profiles: Vec<String>` (**ids only** — never raw
   repos/packages, preserving the privilege boundary).
@@ -129,11 +129,13 @@ step with a clear message rather than deploying a half-built image.
 ## Files
 
 Create: `crates/sirius-diag/src/hardware.rs`,
-`crates/sirius-installer/src/pages/drivers.rs`.
+`crates/sirius-app/src/pages/drivers.rs`.
 Modify: `crates/sirius-diag/src/{lib.rs,config.rs,report.rs}`,
-`crates/sirius-installer/src/{config_model.rs,i18n.rs,app.rs,navigator.rs}`,
-`crates/sirius-installer/src/pages/mod.rs`,
-`crates/sirius-installer/src/backend/{distro.rs,adapter.rs,runner.rs}`,
+`crates/sirius-core/src/install.rs`,
+`crates/sirius-app/src/{app.rs,navigator.rs}`,
+`crates/sirius-app/src/pages/mod.rs`,
+`crates/sirius-core/src/distro.rs`,
+`crates/sirius-backend/src/{install.rs,runner.rs}`,
 `images/editions/workstation/files/etc/sirius/distro.toml` (seed profiles).
 Optional (persistence): `images/editions/core/Containerfile` (keep rpm-ostree).
 

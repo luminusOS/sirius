@@ -1,9 +1,15 @@
 [workspace]
 resolver = "2"
-members = ["crates/sirius-diag", "crates/sirius-installer"]
+members = [
+  "crates/sirius-app",
+  "crates/sirius-backend",
+  "crates/sirius-core",
+  "crates/sirius-diag",
+  "crates/sirius-installer",
+]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.2.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 
@@ -19,13 +25,26 @@ adw = { version = "0.8", package = "libadwaita", features = ["v1_5"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 libc = "0.2"
+lsblk = "0.6.1"
 uuid = { version = "1", features = ["v4"] }
 zbus = "5"
 zvariant = "5"
-# Uses the LuminusOS fork while upstream fixes required by Sirius are pending.
+libgweather = "4"
+# SVG decoding for the timezone map; driven on a dedicated thread through
+# async-io (glycin's native runtime), never on the glib main context. Pinned
+# to 3.x because its loader protocol (COMPAT_VERSION 2) matches the
+# glycin-loaders 2.x packages shipped by Fedora.
+glycin = "3.1"
+async-io = "2"
+# Uses the LuminusOS readymade fork, pinned to the revision carrying the
+# Keyboard postinstall module and the bootc finalize fixes Sirius requires.
 # `default-features = false` disables the `uutils` feature, which pulls in
 # `uu_cp`/`exacl` and forces linking against `libacl.so` (the `libacl-devel`
 # system package, absent on this host). It only gates one of three copy backends
 # (`copy_dir_uutils`); the default copy method is the native `rdm` implementation,
 # so dropping it does not affect the install path we need.
-libreadymade = { git = "https://github.com/luminusOS/readymade.git", rev = "c58f56daa25463c660a1488bce5e5a45f0328c2b", default-features = false }
+libreadymade = { git = "https://github.com/luminusOS/readymade.git", rev = "255b339430d6cd886bd22cd4517a83a52a3fa541", default-features = false }
+sirius-core = { path = "crates/sirius-core" }
+sirius-diag = { path = "crates/sirius-diag" }
+sirius-backend = { path = "crates/sirius-backend" }
+sirius-app = { path = "crates/sirius-app" }

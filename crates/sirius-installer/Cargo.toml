@@ -10,21 +10,15 @@ name = "sirius"
 path = "src/main.rs"
 
 [dependencies]
-sirius-diag = { path = "../sirius-diag" }
+sirius-app = { workspace = true }
+sirius-backend = { workspace = true }
+sirius-core = { workspace = true }
+sirius-diag = { workspace = true }
 clap = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
-toml = { workspace = true }
-relm4 = { workspace = true }
 gettext-rs = { workspace = true }
-adw = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-libc = { workspace = true }
-uuid = { workspace = true }
-zbus = { workspace = true }
-zvariant = { workspace = true }
-libreadymade = { workspace = true }
 
 [package.metadata.generate-rpm]
 assets = [
@@ -32,6 +26,9 @@ assets = [
   { source = "../../data/io.sirius.Installer.policy", dest = "/usr/share/polkit-1/actions/io.sirius.Installer.policy", mode = "644" },
   { source = "../../data/io.sirius.Installer.desktop", dest = "/usr/share/applications/io.sirius.Installer.desktop", mode = "644" },
   { source = "../../data/icons/hicolor/scalable/apps/io.sirius.Installer.svg", dest = "/usr/share/icons/hicolor/scalable/apps/io.sirius.Installer.svg", mode = "644" },
+  { source = "../../data/images/welcome-banner.png", dest = "/usr/share/sirius/welcome-banner.png", mode = "644" },
+  { source = "../../data/images/timezone-map.svg", dest = "/usr/share/sirius/timezone-map.svg", mode = "644" },
+  { source = "../../data/images/timezone-pin.png", dest = "/usr/share/sirius/timezone-pin.png", mode = "644" },
   { source = "../../data/distro.toml", dest = "/etc/sirius/distro.toml", mode = "644", config = "noreplace" },
   { source = "../../data/sirius.toml", dest = "/etc/sirius/sirius.toml", mode = "644", config = "noreplace" },
   { source = "../../data/repart.d/10-esp.conf", dest = "/usr/share/sirius/repart.d/10-esp.conf", mode = "644" },
@@ -47,4 +44,6 @@ polkit = "*"
 udisks2 = "*"
 NetworkManager = "*"
 util-linux = "*"
+libgweather = "*"
+glycin-loaders = "*"
 hicolor-icon-theme = "*"

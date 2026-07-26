@@ -8,6 +8,9 @@ polkit/desktop integration, and the distribution's descriptor + repart layout.
 | `target/release/sirius` | `/usr/bin/sirius` |
 | `data/io.sirius.Installer.policy` | `/usr/share/polkit-1/actions/` |
 | `data/io.sirius.Installer.desktop` | `/usr/share/applications/` |
+| `data/images/welcome-banner.png` | `/usr/share/sirius/welcome-banner.png` |
+| `data/images/timezone-map.svg` | `/usr/share/sirius/timezone-map.svg` |
+| `data/images/timezone-pin.png` | `/usr/share/sirius/timezone-pin.png` |
 | `data/distro.toml` (per-distribution) | `/etc/sirius/distro.toml` |
 | `data/repart.d/*.conf` (per-distribution) | `/usr/share/sirius/repart.d/` |
 | `data/sirius.toml` (page toggles, optional) | `/etc/sirius/sirius.toml` |
@@ -33,8 +36,21 @@ use only kernel mount options for that filesystem. Userspace keywords like
 `defaults`, `auto`, or `nofail` make the mount fail with EINVAL. `distro.toml` may also declare up to three
 optional `[[bento]]` link cards (title/desc/link/icon) shown on the install
 progress page — website, help, contribute links, as in Readymade — and an
-optional `[branding]` section (`logo` image path, or themed `icon` name) for the
-welcome page; see the commented examples in `data/distro.toml`. Bento `icon`
+optional `[branding]` section for the installer identity and opening page:
+
+```toml
+[branding]
+name = "Example OS"
+logo = "/usr/share/example-os/logo.png"
+icon = "system-software-install-symbolic"
+welcome_button = "Install {name}"
+welcome_banner = "/usr/share/example-os/installer-banner.png"
+```
+
+`logo` wins over `icon` on the language page. `welcome_button` supports the
+`{name}` placeholder, and `welcome_banner` replaces the packaged generic
+`/usr/share/sirius/welcome-banner.png`; see the examples in `data/distro.toml`.
+Bento `icon`
 names must exist in the live system's icon theme (ship custom ones under
 `/usr/share/icons/hicolor/scalable/actions/`); missing names fall back to a
 generic link glyph.
@@ -51,11 +67,15 @@ min_ram_gib = 2
 The canonical page id for disk selection and automatic/manual partitioning is
 `storage`. Older configurations that list `disk`, `partition`, or
 `manual_partition` are migrated in memory to one `storage` page. The `network`
-page is automatically omitted when NetworkManager reports no Wi-Fi device.
+page is automatically omitted when NetworkManager reports no Wi-Fi device. The
+`welcome` is always pinned first, before the `language` page. This is an
+intentional page-id break: configurations that previously used `welcome` for
+the language selector must rename that entry to `language`.
 
 ## Runtime requirements on the target/live system
 `systemd-repart`, `bootc`, `cryptsetup` (for encrypted installs), `pkexec`/polkit,
-`mount`, `lsblk`, `udisks2`, and `NetworkManager`.
+`mount`, `udisks2`, and `NetworkManager`. Block-device discovery is performed
+in-process through the Rust `lsblk` crate and the kernel's sysfs data.
 
 The live user must be allowed to request NetworkManager scans/connections. Disk
 mutations never run in the UI process: the confirmed `PartitionPlan` crosses the

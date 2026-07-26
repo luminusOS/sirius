@@ -1,0 +1,18 @@
+[package]
+name = "sirius-backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "System integrations and privileged installer backend for Sirius"
+
+[dependencies]
+sirius-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+gettext-rs = { workspace = true }
+libc = { workspace = true }
+lsblk = { workspace = true }
+uuid = { workspace = true }
+zbus = { workspace = true }
+zvariant = { workspace = true }
+libreadymade = { workspace = true }

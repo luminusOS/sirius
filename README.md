@@ -30,6 +30,8 @@ for partitioning, bootc for the image, with optional LUKS encryption.
   virtualization, and network before installing, and blocks on hard failures.
 - **Toggleable wizard pages** — page order and which pages run are driven by
   `/etc/sirius/sirius.toml`; no recompile needed.
+- **Distro-owned welcome** — name, logo, opening banner, and the pill action
+  label come from `/etc/sirius/distro.toml`, including `{name}` substitution.
 - **bootc install** — deploys an OCI image via systemd-repart + bootc, with optional
   LUKS encryption.
 - **Unified storage editor** — choose automatic provisioning or stage a validated
@@ -41,7 +43,7 @@ for partitioning, bootc for the image, with optional LUKS encryption.
 - **Privilege split** — the unprivileged UI builds an install request; a `pkexec`
   child executes it as root and streams progress back.
 - **Translated UI** — English and Brazilian Portuguese, switchable live from the
-  welcome page.
+  open language list.
 - **Logging** — every install writes a timestamped log to `/tmp/sirius-install-*.log`
   and shows live progress in the UI.
 

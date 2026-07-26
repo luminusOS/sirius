@@ -7,27 +7,32 @@ distribution is named is `README.md`, as the origin story.
 
 ## Project layout
 
+- `crates/sirius-core` — shared domain and protocol types: `InstallConfig`,
+  partition plans, `DistroDescriptor`, `InstallRequest`, and `Progress`. It has
+  no GTK, process spawning, hardware discovery, or disk I/O.
 - `crates/sirius-diag` — pure library: hardware probes, the `Check`/`Status` model,
   install gating (`run_all_checks`, `is_blocked`), and the page-toggle config
   (`SiriusConfig`, `PagesConfig::resolve`). No GTK, fully unit-tested.
-- `crates/sirius-installer` — the GTK wizard binary `sirius`. Subcommands: `diag`,
-  `--dry-run`, and the hidden `run-playbook` (the privileged install entry point).
-- `crates/sirius-installer/src/backend/` — the ONLY module that touches `libreadymade`,
-  NetworkManager, or UDisks2: `distro` (descriptor), `adapter`
-  (`InstallConfig` → `InstallRequest` → `Playbook`), `runner` (root-side execute),
-  `spawn` (pkexec + progress parse), `network` (NetworkManager client), `storage`
-  (lsblk discovery + UDisks2 mutations). Everything else depends on the
-  `backend::Progress` boundary type, not on libreadymade directly.
+- `crates/sirius-backend` — the ONLY crate that touches `libreadymade`,
+  NetworkManager, UDisks2, pkexec, or the privileged runner. Its storage facade
+  keeps read-only discovery through the Rust `lsblk` crate, sysfs, and udev
+  separate from confirmed mutations; `sirius-diag` has its own read-only
+  hardware probes.
+- `crates/sirius-app` — the Relm4/GTK4 frontend: window, pages, navigation,
+  wizard state, bootstrap, and the background install task.
+- `crates/sirius-installer` — thin launcher producing the single `sirius`
+  executable. It dispatches `diag`, `--dry-run`, the GTK app, and the hidden
+  `run-playbook` entry points.
 - `po/` — gettext catalogs at the repo root: `LINGUAS` (enabled languages),
   `POTFILES` (translatable sources), `pt_BR.po`, `sirius.pot`.
 
 ## Toolchain
 
-- Rust 2021. relm4 **0.10**, gtk4 **0.10**, libadwaita (`adw`) **0.8**, with relm4
+- Rust 2024. relm4 **0.10**, gtk4 **0.10**, libadwaita (`adw`) **0.8**, with relm4
   features `["libadwaita","gnome_45"]`. Needs `libadwaita-devel` / `gtk4-devel`.
-- `libreadymade` is a pinned git dependency of the luminusOS fork (`rev` in the
-  workspace `Cargo.toml`, `default-features = false` to drop the `uutils`/`libacl`
-  feature; the native `rdm` copy backend is used).
+- `libreadymade` comes from the sibling `readymade` workspace through a path
+  dependency (`default-features = false` to drop the `uutils`/`libacl` feature;
+  the native `rdm` copy backend is used).
 - `msgfmt` (gettext) is a required build tool: `crates/sirius-installer/build.rs`
   compiles the `po/` catalogs with it.
 
@@ -41,11 +46,18 @@ cargo run --bin sirius -- diag
 cargo run --bin sirius -- --dry-run
 # Full VM install test (root, scratch disk, live env):
 sudo -E SIRIUS_TEST_DISK=/dev/vdb cargo test --test vm_install -- --ignored vm_full_install
+# Ready-made manual test VM (Silverblue runner + Luminus bootc target):
+vagrant up --provider=libvirt
+vagrant provision
+vagrant ssh
 ```
 
 ## Conventions
 
 - **Commits: never add a `Co-Authored-By` / co-author trailer.**
+- **VM distro details stay in the Vagrant VM.** `Vagrantfile` generates a
+  Fedora-specific descriptor and installs it only in the disposable guest;
+  never copy those defaults into Rust code or `data/`.
 - **Imperative pages use a manual `SimpleComponent` impl.** Pages that build their
   widget tree programmatically (`diagnostics`, `network`, `storage`, `summary`)
   implement `SimpleComponent` by hand — `#[name=...]` inside a `set_child` block

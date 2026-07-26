@@ -16,12 +16,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-msgid "Back"
-msgstr "Voltar"
-
-msgid "Next"
-msgstr "Avançar"
-
 msgid "Install"
 msgstr "Instalar"
 
@@ -46,8 +40,20 @@ msgstr "Apagar disco e instalar"
 msgid "Welcome"
 msgstr "Bem-vindo"
 
-msgid "This assistant will guide you through installation."
-msgstr "Este assistente vai guiá-lo pela instalação."
+msgid "Welcome to {name}"
+msgstr "Bem-vindo ao {name}"
+
+msgid "Start Installation"
+msgstr "Iniciar instalação"
+
+msgid "Choose the language used during installation."
+msgstr "Escolha o idioma usado durante a instalação."
+
+msgid "Choose your language"
+msgstr "Escolha seu idioma"
+
+msgid "Internet connection"
+msgstr "Conexão com a internet"
 
 msgid "Network"
 msgstr "Rede"
@@ -55,8 +61,8 @@ msgstr "Rede"
 msgid "Connect to a network. A connection is optional but recommended."
 msgstr "Conecte-se a uma rede. A conexão é opcional, mas recomendada."
 
-msgid "Choose a Wi-Fi network below."
-msgstr "Escolha uma rede Wi-Fi abaixo."
+msgid "Choose a Wi-Fi network"
+msgstr "Escolha uma rede Wi-Fi"
 
 msgid "Available Wi-Fi networks"
 msgstr "Redes Wi-Fi disponíveis"
@@ -94,17 +100,38 @@ msgstr "Digite a senha do Wi-Fi."
 msgid "Keyboard layout"
 msgstr "Layout do teclado"
 
+msgid "Select the keyboard layout you want to use."
+msgstr "Selecione o layout de teclado que deseja usar."
+
+msgid "Select your keyboard layout"
+msgstr "Selecione seu layout de teclado"
+
+msgid "Search keyboard layouts"
+msgstr "Pesquise layouts de teclado"
+
 msgid "Type here to test your layout"
 msgstr "Digite aqui para testar o layout"
 
 msgid "Time zone"
 msgstr "Fuso horário"
 
+msgid "Time Zone"
+msgstr "Fuso horário"
+
+msgid "Search for a city"
+msgstr "Pesquise uma cidade"
+
+msgid "Search for a nearby city to select its time zone"
+msgstr "Pesquise uma cidade próxima para selecionar o fuso horário"
+
+msgid "Select the nearest city by clicking the map"
+msgstr "Selecione a cidade mais próxima clicando no mapa"
+
+msgid "Search for a city or select a location on the map to set your time zone."
+msgstr "Pesquise uma cidade ou selecione um local no mapa para definir o fuso horário."
+
 msgid "Partitioning"
 msgstr "Particionamento"
-
-msgid "Automatic"
-msgstr "Automático"
 
 msgid "Encrypt the disk (LUKS)"
 msgstr "Criptografar o disco (LUKS)"
@@ -187,17 +214,11 @@ msgstr "Todos os dados deste disco serão apagados."
 msgid "Discard changes"
 msgstr "Descartar alterações"
 
-msgid "Disk layout"
-msgstr "Mapa do disco"
-
 msgid "Table"
 msgstr "Tabela"
 
 msgid "Partition editor"
 msgstr "Editor de partições"
-
-msgid "Close"
-msgstr "Fechar"
 
 msgid "Done"
 msgstr "Concluído"
@@ -241,17 +262,11 @@ msgstr "Editar partição"
 msgid "Create partition"
 msgstr "Criar partição"
 
-msgid "Apply"
-msgstr "Aplicar"
-
 msgid "Filesystem"
 msgstr "Sistema de arquivos"
 
 msgid "Size (GiB)"
 msgstr "Tamanho (GiB)"
-
-msgid "Mount point: / or /boot/efi"
-msgstr "Ponto de montagem: / ou /boot/efi"
 
 msgid "Mount Point"
 msgstr "Ponto de Montagem"
@@ -271,23 +286,11 @@ msgstr "Nenhum disco disponível"
 msgid "Connect a disk or unmount its filesystems and reopen Sirius."
 msgstr "Conecte um disco ou desmonte seus sistemas de arquivos e reabra o Sirius."
 
-msgid "in use"
-msgstr "em uso"
-
 msgid "System compatibility"
 msgstr "Compatibilidade do sistema"
 
 msgid "Sirius checked your hardware before installing."
 msgstr "O Sirius verificou seu hardware antes de instalar."
-
-msgid "Select a disk"
-msgstr "Selecione um disco"
-
-msgid "The chosen disk will be erased."
-msgstr "O disco escolhido será apagado."
-
-msgid "No disks found"
-msgstr "Nenhum disco encontrado"
 
 msgid "Installing the system"
 msgstr "Instalando o sistema"
@@ -415,11 +418,29 @@ msgstr "o destino não é um disco inteiro suportado: {path}"
 msgid "target disk has mounted filesystems; unmount them before installing: {path}"
 msgstr "o disco de destino tem sistemas de arquivos montados; desmonte-os antes de instalar: {path}"
 
+msgid "cannot locate the installer executable: {error}"
+msgstr "não foi possível localizar o executável do instalador: {error}"
+
+msgid "cannot create the private install namespace: {error}"
+msgstr "não foi possível criar o espaço de nomes privado da instalação: {error}"
+
+msgid "cannot prepare the private install namespace: {error}"
+msgstr "não foi possível preparar o espaço de nomes privado da instalação: {error}"
+
+msgid "cannot hide the host OSTree repository: {error}"
+msgstr "não foi possível ocultar o repositório OSTree do sistema hospedeiro: {error}"
+
+msgid "cannot hide the host OSTree repository: mount exited with {status}"
+msgstr "não foi possível ocultar o repositório OSTree do sistema hospedeiro: o mount terminou com {status}"
+
 msgid "failed to read install request"
 msgstr "falha ao ler a solicitação de instalação"
 
 msgid "invalid install request: {error}"
 msgstr "solicitação de instalação inválida: {error}"
+
+msgid "invalid keyboard layout: {layout}"
+msgstr "layout de teclado inválido: {layout}"
 
 msgid "cannot apply partition plan: {error}"
 msgstr "não foi possível aplicar o plano de partições: {error}"
@@ -441,3 +462,90 @@ msgstr "o instalador saiu com o status {code}"
 
 msgid "installer was killed by a signal"
 msgstr "o instalador foi finalizado por um sinal"
+
+msgid "manual partitioning requires a GPT disk"
+msgstr "o particionamento manual requer um disco GPT"
+
+msgid "manual partitioning requires a valid destination disk"
+msgstr "o particionamento manual requer um disco de destino válido"
+
+msgid "planned partition ids must be unique"
+msgstr "os identificadores das partições planejadas devem ser únicos"
+
+msgid "a planned partition is outside the destination disk"
+msgstr "uma partição planejada está fora do disco de destino"
+
+msgid "a planned partition has an invalid GPT type"
+msgstr "uma partição planejada tem um tipo GPT inválido"
+
+msgid "partition names and labels cannot contain NUL bytes"
+msgstr "nomes e rótulos de partições não podem conter bytes NUL"
+
+msgid "partition labels cannot contain NUL bytes"
+msgstr "rótulos de partições não podem conter bytes NUL"
+
+msgid "planned partitions overlap"
+msgstr "as partições planejadas se sobrepõem"
+
+msgid "mount points must be unique absolute paths"
+msgstr "os pontos de montagem devem ser caminhos absolutos únicos"
+
+msgid "a mount assignment does not match its formatted filesystem"
+msgstr "uma atribuição de montagem não corresponde ao sistema de arquivos formatado"
+
+msgid "a partition cannot be deleted before it is created"
+msgstr "uma partição não pode ser excluída antes de ser criada"
+
+msgid "choose exactly one root partition"
+msgstr "escolha exatamente uma partição raiz"
+
+msgid "the root partition must use Btrfs or ext4"
+msgstr "a partição raiz deve usar Btrfs ou ext4"
+
+msgid "the root partition must be at least 20 GiB"
+msgstr "a partição raiz deve ter pelo menos 20 GiB"
+
+msgid "the root partition must be explicitly formatted"
+msgstr "a partição raiz deve ser formatada explicitamente"
+
+msgid "choose one FAT32 EFI system partition"
+msgstr "escolha uma partição de sistema EFI FAT32"
+
+msgid "the EFI system partition must be at least 512 MiB"
+msgstr "a partição de sistema EFI deve ter pelo menos 512 MiB"
+
+msgid "unsupported filesystem: {filesystem}"
+msgstr "sistema de arquivos não suportado: {filesystem}"
+
+msgid "an existing partition reference is invalid"
+msgstr "uma referência de partição existente é inválida"
+
+msgid "planned partition does not exist: {id}"
+msgstr "a partição planejada não existe: {id}"
+
+msgid "partition size must be at least 0.5 GiB"
+msgstr "o tamanho da partição deve ser de pelo menos 0,5 GiB"
+
+msgid "mount point must be empty or an absolute path"
+msgstr "o ponto de montagem deve estar vazio ou ser um caminho absoluto"
+
+msgid "swap partitions cannot have a mount point"
+msgstr "partições swap não podem ter um ponto de montagem"
+
+msgid "partition plan no longer matches the selected disk"
+msgstr "o plano de partições não corresponde mais ao disco selecionado"
+
+msgid "the selected free region is no longer available"
+msgstr "a região livre selecionada não está mais disponível"
+
+msgid "partition size exceeds the available space"
+msgstr "o tamanho da partição excede o espaço disponível"
+
+msgid "partition no longer exists"
+msgstr "a partição não existe mais"
+
+msgid "mounted partitions cannot be deleted"
+msgstr "partições montadas não podem ser excluídas"
+
+msgid "planned partition no longer exists"
+msgstr "a partição planejada não existe mais"
