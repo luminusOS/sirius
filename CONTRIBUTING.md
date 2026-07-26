@@ -9,13 +9,15 @@ Install system dependencies on Fedora or inside the project toolbox:
 ```sh
 sudo dnf install -y \
   rust cargo pkgconf-pkg-config \
-  gtk4-devel libadwaita-devel libgweather-devel gettext \
+  gtk4-devel libadwaita-devel libgweather-devel gnome-desktop4-devel gettext \
   lcms2-devel fontconfig-devel libseccomp-devel glycin-loaders bubblewrap
 ```
 
 The `lcms2`/`fontconfig`/`libseccomp` devel packages build the `glycin` crate
 (SVG timezone map); `glycin-loaders` + `bubblewrap` are its sandboxed runtime
-decoders.
+decoders. `gnome-desktop4-devel` and `fontconfig-devel` are the link targets
+of the keyboard/language pages' FFI modules (`libgnome-desktop-4`,
+`libfontconfig`).
 
 `gettext` provides `msgfmt`, which `crates/sirius-installer/build.rs` requires to compile the translation catalogs — without it the build fails.
 
