@@ -3,7 +3,7 @@
 # bootc/OCI image and its systemd-repart partition layout.
 
 [bootc]
-image = "ghcr.io/example/os:latest"
+image = "docker://ghcr.io/example/os:latest"
 # Optional bootc install controls:
 # target_imgref = "ghcr.io/example/os:latest"
 # enforce_sigpolicy = false
@@ -33,8 +33,11 @@ repart_dir = "/usr/share/sirius/repart.d"
 # link = "https://example.com/contribute"
 # icon = "applications-development-symbolic"
 
-# Optional: welcome-page branding. `logo` (image file path) wins over `icon`
-# (themed icon name); default is a star, for Sirius.
-# [branding]
+# Optional: installer branding. The button supports a `{name}` placeholder.
+# `logo` wins over `icon`; `welcome_banner` controls the large opening artwork.
+[branding]
+# name = "Example OS"
 # logo = "/usr/share/sirius/logo.png"
 # icon = "starred-symbolic"
+welcome_button = "Start Installation"
+welcome_banner = "/usr/share/sirius/welcome-banner.png"

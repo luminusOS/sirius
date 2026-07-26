@@ -1,13 +1,6 @@
-//! Sirius installer entry point: diagnostics, dry-run and the GTK assistant.
+//! Thin Sirius entry point: diagnostics, dry-run, GTK app and privileged runner.
 
-mod app;
-mod backend;
-mod config_model;
-mod gui;
 mod logging;
-mod navigator;
-mod pages;
-mod style;
 
 use clap::{Parser, Subcommand};
 use sirius_diag::config::CONFIG_PATH;
@@ -36,6 +29,9 @@ enum Command {
     /// Internal: execute an install request from stdin (run under pkexec). Not for direct use.
     #[command(hide = true)]
     RunPlaybook,
+    /// Internal: execute inside the private mount namespace prepared by RunPlaybook.
+    #[command(hide = true)]
+    RunPlaybookInner,
 }
 
 fn main() -> ExitCode {
@@ -45,7 +41,11 @@ fn main() -> ExitCode {
     // against the same catalogs (LANGUAGE is pinned from the request there).
     if matches!(cli.command, Some(Command::RunPlaybook)) {
         init_gettext();
-        return ExitCode::from(backend::runner::run() as u8);
+        return ExitCode::from(sirius_backend::runner::run_isolated() as u8);
+    }
+    if matches!(cli.command, Some(Command::RunPlaybookInner)) {
+        init_gettext();
+        return ExitCode::from(sirius_backend::runner::run() as u8);
     }
     let _log = logging::init();
     if cli.dry_run {
@@ -59,9 +59,10 @@ fn main() -> ExitCode {
             run_diag(json)
         }
         Some(Command::RunPlaybook) => unreachable!("handled above"),
+        Some(Command::RunPlaybookInner) => unreachable!("handled above"),
         None => {
             init_gettext();
-            gui::run();
+            sirius_app::run();
             ExitCode::SUCCESS
         }
     }
@@ -88,7 +89,7 @@ fn init_gettext() {
 }
 
 fn sirius_installer_dry_run() -> serde_json::Value {
-    use config_model::{InstallConfig, InstallType, UserAccount};
+    use sirius_core::{InstallConfig, InstallType, UserAccount};
     let cfg = InstallConfig {
         locale: Some("en_US".into()),
         keyboard: Some("us".into()),
@@ -109,11 +110,8 @@ fn sirius_installer_dry_run() -> serde_json::Value {
             hostname: "localhost".into(),
         },
     };
-    let distro = backend::distro::DistroDescriptor::from_toml(
-        &std::fs::read_to_string("data/distro.toml").unwrap_or_default(),
-    )
-    .expect("data/distro.toml must parse");
-    let req = backend::adapter::build_request(&cfg).expect("dry-run config must be valid");
+    let distro = sirius_backend::distro::load().expect("installed distro descriptor must parse");
+    let req = sirius_backend::install::build_request(&cfg).expect("dry-run config must be valid");
     serde_json::json!({ "request": req, "distro": distro })
 }
 

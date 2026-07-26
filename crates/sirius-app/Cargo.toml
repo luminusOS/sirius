@@ -1,0 +1,26 @@
+[package]
+name = "sirius-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Relm4, GTK4 and Libadwaita frontend for Sirius"
+
+[dependencies]
+sirius-core = { workspace = true }
+sirius-backend = { workspace = true }
+sirius-diag = { workspace = true }
+relm4 = { workspace = true }
+gettext-rs = { workspace = true }
+adw = { workspace = true }
+libgweather = { workspace = true }
+glycin = { workspace = true }
+async-io = { workspace = true }
+futures-channel = "0.3"
+# glycin 3.x takes its loader input from gio 0.22 while the UI stack is on
+# gtk-rs 0.10 (gio 0.21); the alias keeps both in the tree without mixing types.
+glycin-gio = { package = "gio", version = "0.22" }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }

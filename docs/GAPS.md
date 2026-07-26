@@ -7,7 +7,7 @@ distro.
 
 ## TODO — postinstall provisioning modules
 
-At the pinned `libreadymade` commit there is **no** postinstall module for the following
+The current in-tree `libreadymade` has **no** postinstall module for the following
 settings. The wizard collects them and carries them on `InstallRequest`, but
 `into_playbook` currently wires only locale (`Language`) plus `InitialSetup` (which writes
 `/.unconfigured` to trigger the distribution's first-boot setup agent, e.g.
@@ -27,7 +27,7 @@ a first-boot agent.
 - [x] ~~**Encryption key = user password (MVP).**~~ Resolved: the storage page
   now collects a dedicated LUKS passphrase pair (`encryption_passphrase` on
   `InstallConfig`, gated by `WizardState::storage_is_valid`), and
-  `adapter::build_request` uses it instead of the account password.
+  `sirius_backend::install::build_request` uses it instead of the account password.
 - [ ] **Placeholder repart templates.** `data/repart.d/*.conf` are generic ESP + btrfs
   defaults; ship real per-distribution layouts.
 - [ ] **pkexec target is pinned to `/usr/bin/sirius`** (polkit policy). Only works when
@@ -35,11 +35,12 @@ a first-boot agent.
   root the runner is spawned directly (no pkexec), and pkexec exits 126/127 are reported
   with a clear polkit-agent hint in the progress log. A live session still needs a polkit
   agent or a rule granting the action (see INSTALL.md).
-- [ ] **libreadymade comes from the LuminusOS fork**, pinned to rev `c58f56d`, while
-  upstream fixes required by Sirius are pending (the fork carries the patched
-  `filesystem-table` crate in-tree, so no Cargo `[patch]` override is needed).
-  `libreadymade` is pulled with `default-features = false` to avoid the `uutils`
-  feature (which needs `libacl-devel`); the default `rdm` copy backend is used.
+- [ ] **libreadymade comes from the sibling LuminusOS `readymade` workspace**
+  through a path dependency while upstream fixes required by Sirius are pending.
+  That workspace carries the patched `filesystem-table` crate in-tree, so no
+  Cargo `[patch]` override is needed. `libreadymade` is built with
+  `default-features = false` to avoid the `uutils` feature (which needs
+  `libacl-devel`); the default `rdm` copy backend is used.
 - [x] ~~**Progress bar appears static** during the bootc image pull + repart.~~
   Resolved: the progress page pulses the bar for any stage message without a
   fraction (`ProgressMsg::Pulse` on a 120 ms timer plus `advance_bar(0.0)`);
@@ -63,7 +64,7 @@ page widgets are now mostly covered too:
   itself remain English-only (upstream has no catalogs).
 - [x] Account validation error messages (`UserAccount::validate`) and the LUKS
   passphrase validation.
-- [ ] Error strings from `backend::storage` / `backend::distro` surfaced through
+- [ ] Error strings from `sirius-backend::storage` / `sirius-backend::distro` surfaced through
   runner `fail(...)` wrappers are still English-only.
 - [ ] Storage and NetworkManager runtime flows still need hardware-in-the-loop
   coverage across SATA, NVMe, WPA3 transition mode, and multiple Wi-Fi adapters.
