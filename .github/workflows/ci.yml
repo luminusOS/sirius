@@ -19,7 +19,7 @@ jobs:
         run: |
           dnf install -y git gcc clang gtk4-devel libadwaita-devel libgweather-devel \
             gnome-desktop4-devel fontconfig-devel lcms2-devel libseccomp-devel \
-            gettext pkgconf-pkg-config rust cargo clippy rustfmt
+            gettext glibc-all-langpacks pkgconf-pkg-config rust cargo clippy rustfmt
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
         run: |
           dnf install -y git gcc clang gtk4-devel libadwaita-devel libgweather-devel \
             gnome-desktop4-devel fontconfig-devel lcms2-devel libseccomp-devel \
-            gettext pkgconf-pkg-config rust cargo rpm-build
+            gettext glibc-all-langpacks pkgconf-pkg-config rust cargo rpm-build
 
       - name: Checkout
         uses: actions/checkout@v4
