@@ -3246,7 +3246,7 @@ checksum = "c11532d9d241904f095185f35dcdaf930b1427a94d5b01d7002d74ba19b44cc4"
 
 [[package]]
 name = "sirius-app"
-version = "1.2.0"
+version = "1.0.0"
 dependencies = [
  "async-io",
  "futures-channel",
@@ -3266,7 +3266,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-backend"
-version = "1.2.0"
+version = "1.0.0"
 dependencies = [
  "gettext-rs",
  "libc",
@@ -3282,7 +3282,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-core"
-version = "1.2.0"
+version = "1.0.0"
 dependencies = [
  "gettext-rs",
  "serde",
@@ -3293,7 +3293,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-diag"
-version = "1.2.0"
+version = "1.0.0"
 dependencies = [
  "gettext-rs",
  "lsblk",
@@ -3304,7 +3304,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-installer"
-version = "1.2.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "gettext-rs",
