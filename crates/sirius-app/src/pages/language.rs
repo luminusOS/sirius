@@ -3,7 +3,7 @@
 //! "More…" row revealing every other locale, and a checkmark on the active
 //! one. Locale data comes from GNOME Desktop (see `locale`).
 
-mod locale;
+pub(crate) mod locale;
 
 use super::PageOutput;
 use gettextrs::gettext;
@@ -21,10 +21,7 @@ pub struct LanguagePage {
     locales: Vec<locale::LocaleEntry>,
     /// Locale indices currently shown as rows, in row order.
     visible: Vec<usize>,
-    /// Whether a "More…" row is appended after the visible locales.
-    more_row: bool,
     selected: usize,
-    showing_extra: bool,
 }
 
 #[derive(Debug)]
@@ -71,9 +68,7 @@ impl SimpleComponent for LanguagePage {
             no_results,
             locales,
             visible: Vec::new(),
-            more_row: false,
             selected,
-            showing_extra: false,
         };
         model.rebuild_list("");
         model.emit_selection(&sender);
@@ -88,10 +83,7 @@ impl SimpleComponent for LanguagePage {
         match msg {
             LanguageMsg::SearchChanged(query) => self.rebuild_list(&query),
             LanguageMsg::RowActivated(index) => {
-                if self.more_row && index == self.visible.len() {
-                    self.showing_extra = true;
-                    self.rebuild_list(&self.search.text());
-                } else if let Some(locale_index) = self.visible.get(index).copied() {
+                if let Some(locale_index) = self.visible.get(index).copied() {
                     self.selected = locale_index;
                     self.emit_selection(&sender);
                     self.rebuild_list(&self.search.text());
@@ -123,9 +115,7 @@ impl LanguagePage {
             self.list.remove(&child);
         }
 
-        let (visible, more_row) = visible_indices(&self.locales, query, self.showing_extra);
-        self.more_row = more_row;
-        self.visible = visible;
+        self.visible = visible_indices(&self.locales, query);
 
         for index in self.visible.clone() {
             let entry = &self.locales[index];
@@ -140,10 +130,6 @@ impl LanguagePage {
             name.set_ellipsize(gtk::pango::EllipsizeMode::End);
             name.set_max_width_chars(30);
             row_box.append(&name);
-
-            row_box.append(&super::choice_list::selected_indicator(
-                index == self.selected,
-            ));
 
             if let Some(country) = &entry.country_native {
                 let label = gtk::Label::new(Some(country));
@@ -162,18 +148,15 @@ impl LanguagePage {
             self.list.append(&row);
         }
 
-        if self.more_row {
-            let arrow = gtk::Image::from_icon_name("view-more-symbolic");
-            arrow.add_css_class("dim-label");
-            arrow.set_hexpand(true);
-            arrow.set_halign(gtk::Align::Center);
-            arrow.set_margin_top(12);
-            arrow.set_margin_bottom(12);
-            let row = gtk::ListBoxRow::new();
-            row.set_activatable(true);
-            row.set_tooltip_text(Some(&gettext("More…")));
-            row.set_child(Some(&arrow));
-            self.list.append(&row);
+        // The selection shows as the row's default Adwaita selected
+        // background — no check mark.
+        if let Some(position) = self
+            .visible
+            .iter()
+            .position(|index| *index == self.selected)
+            && let Some(row) = self.list.row_at_index(position as i32)
+        {
+            self.list.select_row(Some(&row));
         }
     }
 
@@ -186,31 +169,18 @@ impl LanguagePage {
     }
 }
 
-/// Row set shown for a query, mirroring `language_visible`: while searching,
-/// every matching locale (initial or extra) shows and the "More…" row hides;
-/// otherwise only the pinned entries show until the extras are expanded.
-/// Returns the visible locale indices plus whether a "More…" row follows.
-fn visible_indices(
-    locales: &[locale::LocaleEntry],
-    query: &str,
-    showing_extra: bool,
-) -> (Vec<usize>, bool) {
+/// Row set shown for a query: while searching, every matching locale; without
+/// a query, the full list (pinned languages first, then the rest — the list
+/// scrolls, so there is no "More…" expander).
+fn visible_indices(locales: &[locale::LocaleEntry], query: &str) -> Vec<usize> {
     let query = locale::normalize(query);
     let searching = !query.is_empty();
-    let visible = locales
+    locales
         .iter()
         .enumerate()
-        .filter(|(_, entry)| {
-            if searching {
-                entry.matches(&query)
-            } else {
-                entry.is_initial || showing_extra
-            }
-        })
+        .filter(|(_, entry)| !searching || entry.matches(&query))
         .map(|(index, _)| index)
-        .collect();
-    let more_row = !searching && !showing_extra && locales.iter().any(|entry| !entry.is_initial);
-    (visible, more_row)
+        .collect()
 }
 
 fn apply_header(root: &adw::StatusPage) {
@@ -255,7 +225,7 @@ fn language_content(
     choices.append(&search);
 
     let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
+    list.set_selection_mode(gtk::SelectionMode::Single);
     list.add_css_class("boxed-list");
     list.set_valign(gtk::Align::Start);
     let no_results = gtk::Label::new(Some(&gettext("No languages found")));
@@ -275,6 +245,7 @@ fn language_content(
     scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
     scroll.set_min_content_height(250);
     scroll.set_max_content_height(300);
+    scroll.add_css_class("chooser-scroll");
     scroll.set_child(Some(&list));
     choices.append(&scroll);
     content.append(&choices);
@@ -292,11 +263,12 @@ fn branding_view(branding: &Branding) -> gtk::Box {
         .as_deref()
         .filter(|path| Path::new(path).is_file())
     {
-        let picture = gtk::Picture::for_filename(path);
-        picture.set_width_request(220);
-        picture.set_height_request(160);
-        picture.set_content_fit(gtk::ContentFit::Contain);
-        column.append(&picture);
+        // A Picture would let the logo's intrinsic pixel size win over the
+        // request and grow with the window; Image + pixel_size caps it like
+        // the themed-icon fallback below.
+        let image = gtk::Image::from_file(path);
+        image.set_pixel_size(128);
+        column.append(&image);
     } else {
         let image =
             gtk::Image::from_icon_name(branding.icon.as_deref().unwrap_or("starred-symbolic"));
@@ -316,28 +288,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn without_a_query_only_pinned_languages_show_behind_more() {
+    fn without_a_query_everything_shows_pinned_first() {
         let locales = locale::load();
-        let (visible, more_row) = visible_indices(&locales, "", false);
-        assert!(!visible.is_empty());
-        assert!(visible.iter().all(|index| locales[*index].is_initial));
-        assert!(more_row, "the More… row must gate the extra locales");
-
-        let (expanded, more_row) = visible_indices(&locales, "", true);
-        assert!(expanded.len() > visible.len());
-        assert!(!more_row);
+        let visible = visible_indices(&locales, "");
+        assert_eq!(visible.len(), locales.len(), "no More… gate: show all");
+        let first_extra = visible.iter().position(|index| !locales[*index].is_initial);
+        if let Some(first_extra) = first_extra {
+            assert!(
+                visible[..first_extra]
+                    .iter()
+                    .all(|index| locales[*index].is_initial)
+            );
+        }
     }
 
     #[test]
-    fn searching_reaches_extra_locales_and_hides_more() {
+    fn searching_reaches_extra_locales() {
         let locales = locale::load();
         let extra = locales
             .iter()
             .find(|entry| !entry.is_initial)
             .expect("extra locales must exist");
         let term = locale::normalize(extra.name_native.split_whitespace().next().unwrap());
-        let (visible, more_row) = visible_indices(&locales, &term, false);
+        let visible = visible_indices(&locales, &term);
         assert!(visible.iter().any(|index| locales[*index].id == extra.id));
-        assert!(!more_row);
     }
 }

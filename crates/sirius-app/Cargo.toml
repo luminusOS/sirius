@@ -12,7 +12,6 @@ sirius-diag = { workspace = true }
 relm4 = { workspace = true }
 gettext-rs = { workspace = true }
 adw = { workspace = true }
-libgweather = { workspace = true }
 glycin = { workspace = true }
 async-io = { workspace = true }
 futures-channel = "0.3"

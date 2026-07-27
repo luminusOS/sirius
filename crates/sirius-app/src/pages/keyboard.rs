@@ -22,14 +22,12 @@ pub struct KeyboardPage {
     test_entry: gtk::Entry,
     input_settings: gtk::gio::Settings,
     layouts: Vec<Layout>,
-    /// Locale-relevant layout ids shown before the "More…" row is expanded.
+    /// Locale-relevant layout ids, listed first (the rest follows — the list
+    /// scrolls, so there is no "More…" expander).
     initial_ids: Vec<String>,
     /// Layout indices currently shown as rows, in row order.
     visible: Vec<usize>,
-    /// Whether a "More…" row is appended after the visible layouts.
-    more_row: bool,
     selected: usize,
-    showing_extra: bool,
     user_selected: bool,
 }
 
@@ -76,9 +74,7 @@ impl SimpleComponent for KeyboardPage {
             layouts,
             initial_ids,
             visible: Vec::new(),
-            more_row: false,
             selected,
-            showing_extra: false,
             user_selected: false,
         };
         model.rebuild_list("");
@@ -94,10 +90,7 @@ impl SimpleComponent for KeyboardPage {
         match msg {
             KeyboardMsg::SearchChanged(query) => self.rebuild_list(&query),
             KeyboardMsg::RowActivated(index) => {
-                if self.more_row && index == self.visible.len() {
-                    self.showing_extra = true;
-                    self.rebuild_list(&self.search.text());
-                } else if let Some(layout_index) = self.visible.get(index).copied() {
+                if let Some(layout_index) = self.visible.get(index).copied() {
                     if layout_index == self.selected {
                         // Re-activating the selected row confirms the choice
                         // (CcInputChooser::confirm_choice).
@@ -157,46 +150,28 @@ impl KeyboardPage {
         order.sort_by_key(|index| !self.is_initial(*index));
 
         self.visible.clear();
-        self.more_row = false;
         for index in order {
             let layout = &self.layouts[index];
-            let show = if searching {
-                layout.search_text.contains(&query)
-            } else {
-                self.is_initial(index) || self.showing_extra
-            };
-            if !show {
+            if searching && !layout.search_text.contains(&query) {
                 continue;
             }
 
             let row = adw::ActionRow::new();
             row.set_title(&layout.name);
             row.set_activatable(true);
-            row.add_suffix(&super::choice_list::selected_indicator(
-                index == self.selected,
-            ));
             self.list.append(&row);
             self.visible.push(index);
         }
 
-        let has_extra = self
-            .layouts
+        // The selection shows as the row's default Adwaita selected
+        // background — no check mark.
+        if let Some(position) = self
+            .visible
             .iter()
-            .enumerate()
-            .any(|(index, _)| !self.is_initial(index));
-        if !searching && !self.showing_extra && has_extra {
-            let arrow = gtk::Image::from_icon_name("view-more-symbolic");
-            arrow.add_css_class("dim-label");
-            arrow.set_hexpand(true);
-            arrow.set_halign(gtk::Align::Center);
-            arrow.set_margin_top(12);
-            arrow.set_margin_bottom(12);
-            let row = gtk::ListBoxRow::new();
-            row.set_activatable(true);
-            row.set_tooltip_text(Some(&gettext("More…")));
-            row.set_child(Some(&arrow));
-            self.list.append(&row);
-            self.more_row = true;
+            .position(|index| *index == self.selected)
+            && let Some(row) = self.list.row_at_index(position as i32)
+        {
+            self.list.select_row(Some(&row));
         }
     }
 
@@ -250,7 +225,7 @@ fn keyboard_content(
     choices.append(&search);
 
     let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
+    list.set_selection_mode(gtk::SelectionMode::Single);
     list.add_css_class("boxed-list");
     list.set_valign(gtk::Align::Start);
     let no_results = gtk::Label::new(Some(&gettext("No inputs found")));
@@ -269,6 +244,7 @@ fn keyboard_content(
     scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
     scroll.set_min_content_height(190);
     scroll.set_max_content_height(250);
+    scroll.add_css_class("chooser-scroll");
     scroll.set_child(Some(&list));
     choices.append(&scroll);
 

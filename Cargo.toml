@@ -29,7 +29,6 @@ lsblk = "0.6.1"
 uuid = { version = "1", features = ["v4"] }
 zbus = "5"
 zvariant = "5"
-libgweather = "4"
 # SVG decoding for the timezone map; driven on a dedicated thread through
 # async-io (glycin's native runtime), never on the glib main context. Pinned
 # to 3.x because its loader protocol (COMPAT_VERSION 2) matches the

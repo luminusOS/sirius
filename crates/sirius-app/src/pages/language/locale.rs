@@ -19,6 +19,11 @@ const INITIAL_LOCALES: &[&str] = &[
     "en_US", "pt_BR", "de_DE", "fr_FR", "es_ES", "zh_CN", "ja_JP", "ru_RU", "ar_EG",
 ];
 
+/// The pinned locale ids, shared with the welcome page's greeting carousel.
+pub(crate) fn initial_locale_ids() -> &'static [&'static str] {
+    INITIAL_LOCALES
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct LocaleEntry {
     /// Locale id without codeset, e.g. `pt_BR` — the `SetLocale` wire format.
@@ -275,7 +280,7 @@ fn country_from_code(code: &str, translation: Option<&str>) -> Option<String> {
 /// Port of `cc_common_language_has_font`: when fontconfig does not know the
 /// language we assume it renders; otherwise some installed font must cover
 /// its charset.
-fn has_font(language: &str) -> bool {
+pub(crate) fn has_font(language: &str) -> bool {
     let Ok(c_language) = CString::new(language) else {
         return false;
     };

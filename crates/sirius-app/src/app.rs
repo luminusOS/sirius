@@ -19,6 +19,8 @@ pub struct AppModel {
     carousel: Option<adw::Carousel>,
     page_widgets: std::collections::HashMap<String, gtk::Widget>,
     window: Option<adw::ApplicationWindow>,
+    /// Command line for the terminal launcher (button + Ctrl+Shift+P).
+    terminal_command: String,
 }
 
 #[derive(Debug)]
@@ -50,9 +52,11 @@ impl SimpleComponent for AppModel {
                 add_top_bar = &adw::HeaderBar {
                     set_show_end_title_buttons: false,
 
+                    #[name = "terminal_button"]
                     pack_start = &gtk::Button {
                         set_icon_name: "utilities-terminal-symbolic",
                         add_css_class: "flat",
+                        set_visible: false,
                         #[watch]
                         set_tooltip_text: Some(gettext("Open terminal").as_str()),
                         connect_clicked => AppMsg::OpenTerminal,
@@ -136,9 +140,32 @@ impl SimpleComponent for AppModel {
             carousel: None,
             page_widgets: std::collections::HashMap::new(),
             window: None,
+            terminal_command: bootstrap.terminal.command.clone(),
         };
 
         let widgets = view_output!();
+        widgets
+            .terminal_button
+            .set_visible(bootstrap.terminal.show_button);
+
+        // Ctrl+Shift+P opens the configured terminal even with the
+        // header-bar button hidden (the default).
+        {
+            let command = bootstrap.terminal.command.clone();
+            let keys = gtk::EventControllerKey::new();
+            keys.connect_key_pressed(move |_, key, _, mods| {
+                let wanted = matches!(key, gtk::gdk::Key::P | gtk::gdk::Key::p)
+                    && mods.contains(
+                        gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::SHIFT_MASK,
+                    );
+                if wanted {
+                    open_terminal(&command);
+                    return gtk::glib::Propagation::Stop;
+                }
+                gtk::glib::Propagation::Proceed
+            });
+            root.add_controller(keys);
+        }
 
         for id in &pages_order {
             if let Some(w) = model.pages.widget(id) {
@@ -152,8 +179,13 @@ impl SimpleComponent for AppModel {
                 // Keep page content clear of the overlay navigation arrows and
                 // visually centered at every step of the carousel. The progress
                 // page shows neither arrow (Back hides once the install starts,
-                // Next is hidden on it), so the margins would be dead space.
-                let side_margin = if id == "progress" { 0 } else { 72 };
+                // Next is hidden on it) and the welcome page's banner runs
+                // edge-to-edge, so the margins would be dead space on both.
+                let side_margin = if matches!(id.as_str(), "progress" | "welcome") {
+                    0
+                } else {
+                    72
+                };
                 w.set_margin_start(side_margin);
                 w.set_margin_end(side_margin);
                 widgets.carousel.append(&w);
@@ -199,7 +231,7 @@ impl SimpleComponent for AppModel {
         match msg {
             AppMsg::Page(PageOutput::RequestInstall) => self.confirm_install(&sender),
             AppMsg::Page(out) => self.apply_page_output(out),
-            AppMsg::OpenTerminal => Self::open_terminal(),
+            AppMsg::OpenTerminal => open_terminal(&self.terminal_command),
             AppMsg::Next => {
                 // Leaving the summary erases the disk: require explicit confirmation.
                 if self.state.current_page() == "summary" {
@@ -256,13 +288,19 @@ impl SimpleComponent for AppModel {
     }
 }
 
-impl AppModel {
-    fn open_terminal() {
-        if let Err(err) = std::process::Command::new("ptyxis").spawn() {
-            tracing::error!(?err, "failed to launch Ptyxis");
-        }
+/// Launch the configured terminal command (program plus arguments, split on
+/// whitespace — no shell quoting).
+fn open_terminal(command: &str) {
+    let mut parts = command.split_whitespace();
+    let Some(program) = parts.next() else {
+        return;
+    };
+    if let Err(err) = std::process::Command::new(program).args(parts).spawn() {
+        tracing::error!(?err, command, "failed to launch the configured terminal");
     }
+}
 
+impl AppModel {
     /// Modal "this will erase the disk" gate before leaving the summary page.
     fn confirm_install(&self, sender: &ComponentSender<Self>) {
         let config = self.state.config();
@@ -326,5 +364,69 @@ impl AppModel {
         if self.state.current_page() == "summary" {
             self.pages.show_summary(self.state.config().clone());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Interactive: the overlay Back/Next arrows must keep their icons
+    // centered inside the 44px circle.
+    #[test]
+    fn navigation_arrow_icons_stay_centered() {
+        if std::env::var_os("WAYLAND_DISPLAY").is_none() && std::env::var_os("DISPLAY").is_none() {
+            eprintln!("skipping interactive test: no display available");
+            return;
+        }
+        crate::pages::testutil::run_on_gtk_thread(navigation_arrows_interactive);
+    }
+
+    fn navigation_arrows_interactive() {
+        crate::style::load();
+
+        let back = gtk::Button::from_icon_name("go-previous-symbolic");
+        back.add_css_class("navigation-arrow");
+        back.set_halign(gtk::Align::Start);
+        back.set_valign(gtk::Align::Center);
+        let next = gtk::Button::from_icon_name("go-next-symbolic");
+        next.add_css_class("navigation-arrow");
+        next.add_css_class("suggested-action");
+        next.set_halign(gtk::Align::End);
+        next.set_valign(gtk::Align::Center);
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        row.append(&back);
+        row.append(&next);
+        let window = adw::Window::new();
+        window.set_content(Some(&row));
+        window.present();
+
+        let context = gtk::glib::MainContext::default();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(800);
+        while std::time::Instant::now() < deadline {
+            while context.pending() {
+                context.iteration(false);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        for button in [&back, &next] {
+            assert_eq!(
+                (button.width(), button.height()),
+                (44, 44),
+                "navigation-arrow must render as a 44px circle"
+            );
+            let image = button.first_child().expect("icon child");
+            let bounds = image
+                .compute_bounds(button)
+                .expect("icon bounds inside the button");
+            let center_x = f64::from(bounds.x()) + f64::from(bounds.width()) / 2.0;
+            let center_y = f64::from(bounds.y()) + f64::from(bounds.height()) / 2.0;
+            assert!(
+                (center_x - 22.0).abs() < 1.5 && (center_y - 22.0).abs() < 1.5,
+                "icon must be centered in the 44px button, got center ({center_x:.1}, {center_y:.1})"
+            );
+        }
+        window.close();
     }
 }

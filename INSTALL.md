@@ -64,6 +64,16 @@ warn = ["secure_boot", "network", "virt"]
 min_ram_gib = 2
 ```
 
+Optional terminal launcher, also in `/etc/sirius/sirius.toml`. The
+Ctrl+Shift+P shortcut always works; the header-bar button stays hidden unless
+`show_button` is enabled:
+
+```toml
+[terminal]
+command = "ptyxis"
+show_button = false
+```
+
 The canonical page id for disk selection and automatic/manual partitioning is
 `storage`. Older configurations that list `disk`, `partition`, or
 `manual_partition` are migrated in memory to one `storage` page. The `network`

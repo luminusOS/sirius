@@ -18,3 +18,9 @@ disabled = []
 require = ["uefi", "ram", "disk_space"]
 warn = ["secure_boot", "network", "virt"]
 min_ram_gib = 2
+
+# Terminal launcher: opened by the Ctrl+Shift+P shortcut, and by the
+# header-bar button when `show_button` is enabled (hidden by default).
+# [terminal]
+# command = "ptyxis"
+# show_button = false

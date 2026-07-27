@@ -132,6 +132,7 @@ fn disk_selector(
         return group;
     }
 
+    let mut radio_group: Option<gtk::CheckButton> = None;
     for &index in &available {
         let disk = &disks[index];
         let row = adw::ActionRow::new();
@@ -143,15 +144,29 @@ fn disk_selector(
             disk.table_type
         ));
         row.add_prefix(&gtk::Image::from_icon_name("drive-harddisk-symbolic"));
-        row.add_suffix(&super::super::choice_list::selected_indicator(
-            selected == Some(index),
-        ));
-        row.set_activatable(true);
 
-        let page_sender = sender.clone();
-        row.connect_activated(move |_| {
-            page_sender.input(StorageMsg::Selected(index));
-        });
+        // Real grouped check buttons (GTK radio semantics), not a custom
+        // check mark: the row toggles the button, the button selects the disk.
+        let radio = gtk::CheckButton::new();
+        if let Some(leader) = &radio_group {
+            radio.set_group(Some(leader));
+        } else {
+            radio_group = Some(radio.clone());
+        }
+        // Set the current state before connecting `toggled`, so rebuilding the
+        // view never emits a redundant selection.
+        radio.set_active(selected == Some(index));
+        {
+            let page_sender = sender.clone();
+            radio.connect_toggled(move |radio| {
+                if radio.is_active() {
+                    page_sender.input(StorageMsg::Selected(index));
+                }
+            });
+        }
+        row.add_suffix(&radio);
+        row.set_activatable_widget(Some(&radio));
+
         group.add(&row);
     }
 

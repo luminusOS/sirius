@@ -14,6 +14,7 @@ pub(super) struct Bootstrap {
     pub uefi: bool,
     pub bentos: Vec<Bento>,
     pub branding: Branding,
+    pub terminal: sirius_diag::config::TerminalConfig,
 }
 
 pub(super) fn load() -> Bootstrap {
@@ -50,5 +51,6 @@ pub(super) fn load() -> Bootstrap {
         uefi: Path::new("/sys/firmware/efi").exists(),
         bentos,
         branding,
+        terminal: config.terminal,
     }
 }

@@ -17,6 +17,37 @@ pub struct SiriusConfig {
     pub pages: PagesConfig,
     #[serde(default)]
     pub diagnostics: DiagnosticsConfig,
+    #[serde(default)]
+    pub terminal: TerminalConfig,
+}
+
+/// Terminal launcher: which program the Ctrl+Shift+P shortcut (and the
+/// optional header-bar button) opens.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct TerminalConfig {
+    /// Command line used to launch the terminal (program plus arguments).
+    #[serde(default = "default_terminal_command")]
+    pub command: String,
+    /// Whether the header-bar terminal button is shown. Defaults to hidden;
+    /// the Ctrl+Shift+P shortcut always works.
+    #[serde(default)]
+    pub show_button: bool,
+}
+
+/// Built-in terminal command used when `sirius.toml` does not override it.
+pub const DEFAULT_TERMINAL_COMMAND: &str = "ptyxis";
+
+fn default_terminal_command() -> String {
+    DEFAULT_TERMINAL_COMMAND.to_string()
+}
+
+impl Default for TerminalConfig {
+    fn default() -> Self {
+        Self {
+            command: default_terminal_command(),
+            show_button: false,
+        }
+    }
 }
 
 /// Which wizard pages are enabled and in what order.
@@ -162,6 +193,7 @@ impl Default for SiriusConfig {
                 warn: vec!["secure_boot".into(), "network".into(), "virt".into()],
                 min_ram_gib: DEFAULT_MIN_RAM_GIB,
             },
+            terminal: TerminalConfig::default(),
         }
     }
 }
@@ -181,12 +213,25 @@ disabled = ["manual_partition"]
 require = ["uefi", "ram", "disk_space"]
 warn = ["secure_boot", "network", "virt"]
 min_ram_gib = 3
+
+[terminal]
+command = "kgx --window"
+show_button = true
 "#;
         let cfg = SiriusConfig::from_toml(src).unwrap();
         assert_eq!(cfg.pages.order.first().unwrap(), "welcome");
         assert_eq!(cfg.pages.disabled, vec!["manual_partition".to_string()]);
         assert_eq!(cfg.diagnostics.require.len(), 3);
         assert_eq!(cfg.diagnostics.min_ram_gib, 3);
+        assert_eq!(cfg.terminal.command, "kgx --window");
+        assert!(cfg.terminal.show_button);
+    }
+
+    #[test]
+    fn terminal_defaults_to_hidden_button_and_ptyxis() {
+        let cfg = SiriusConfig::from_toml("").unwrap();
+        assert_eq!(cfg.terminal.command, DEFAULT_TERMINAL_COMMAND);
+        assert!(!cfg.terminal.show_button);
     }
 
     #[test]

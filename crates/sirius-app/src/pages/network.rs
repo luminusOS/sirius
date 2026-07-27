@@ -135,8 +135,27 @@ impl SimpleComponent for NetworkPage {
         heading.set_halign(gtk::Align::Start);
         choices.append(&heading);
 
+        // The group header stays outside the scroll area: only the network
+        // list scrolls, so the scrollbar never covers the rescan icon.
+        let header = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        let title = gtk::Label::new(Some(&gettext("Available Wi-Fi networks")));
+        title.add_css_class("heading");
+        title.set_halign(gtk::Align::Start);
+        title.set_hexpand(true);
+        header.append(&title);
+        let refresh = gtk::Button::from_icon_name("view-refresh-symbolic");
+        refresh.add_css_class("flat");
+        refresh.set_valign(gtk::Align::Center);
+        refresh.set_tooltip_text(Some(&gettext("Scan again")));
+        refresh.set_sensitive(!self.loading && self.connecting.is_none());
+        {
+            let sender = sender.clone();
+            refresh.connect_clicked(move |_| sender.input(NetworkMsg::Refresh));
+        }
+        header.append(&refresh);
+        choices.append(&header);
+
         let group = adw::PreferencesGroup::new();
-        group.set_title(&gettext("Available Wi-Fi networks"));
         if self.loading {
             let row = adw::ActionRow::new();
             row.set_title(&gettext("Looking for networks…"));
@@ -150,6 +169,15 @@ impl SimpleComponent for NetworkPage {
             row.set_title(&network.ssid);
             row.set_subtitle(&security_label(network.security));
             row.add_prefix(&gtk::Image::from_icon_name(signal_icon(network.strength)));
+            // Rows connect on activation, like the GNOME Wi-Fi panel — no
+            // oversized Connect button per row.
+            row.set_activatable(
+                !network.active
+                    && network.security != WifiSecurity::Unsupported
+                    && self.connecting.is_none(),
+            );
+            let s = sender.clone();
+            row.connect_activated(move |_| s.input(NetworkMsg::Select(index)));
             if network.active {
                 let connected = gtk::Label::new(Some(&gettext("Connected")));
                 connected.add_css_class("accent");
@@ -158,15 +186,6 @@ impl SimpleComponent for NetworkPage {
                 let spinner = gtk::Spinner::new();
                 spinner.start();
                 row.add_suffix(&spinner);
-            } else {
-                let button = gtk::Button::with_label(&gettext("Connect"));
-                button.set_sensitive(
-                    network.security != WifiSecurity::Unsupported && self.connecting.is_none(),
-                );
-                let s = sender.clone();
-                button.connect_clicked(move |_| s.input(NetworkMsg::Select(index)));
-                row.add_suffix(&button);
-                row.set_activatable_widget(Some(&button));
             }
             group.add(&row);
         }
@@ -174,6 +193,7 @@ impl SimpleComponent for NetworkPage {
         scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
         scroll.set_min_content_height(250);
         scroll.set_max_content_height(300);
+        scroll.add_css_class("chooser-scroll");
         scroll.set_child(Some(&group));
         choices.append(&scroll);
         if let Some(error) = &self.error {
@@ -182,11 +202,6 @@ impl SimpleComponent for NetworkPage {
             label.set_wrap(true);
             choices.append(&label);
         }
-        let refresh = gtk::Button::with_label(&gettext("Scan again"));
-        refresh.set_halign(gtk::Align::Center);
-        refresh.set_sensitive(!self.loading && self.connecting.is_none());
-        refresh.connect_clicked(move |_| sender.input(NetworkMsg::Refresh));
-        choices.append(&refresh);
         content.append(&choices);
         widgets.root.set_child(Some(&content));
     }
