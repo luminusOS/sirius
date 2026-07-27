@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 license = "GPL-3.0-or-later"
 
@@ -36,13 +36,14 @@ zvariant = "5"
 glycin = "3.1"
 async-io = "2"
 # Uses the LuminusOS readymade fork, pinned to the revision carrying the
-# Keyboard postinstall module and the bootc finalize fixes Sirius requires.
+# Keyboard postinstall module, bootc finalization, and active-deployment
+# postinstall targeting Sirius requires.
 # `default-features = false` disables the `uutils` feature, which pulls in
 # `uu_cp`/`exacl` and forces linking against `libacl.so` (the `libacl-devel`
 # system package, absent on this host). It only gates one of three copy backends
 # (`copy_dir_uutils`); the default copy method is the native `rdm` implementation,
 # so dropping it does not affect the install path we need.
-libreadymade = { git = "https://github.com/luminusOS/readymade.git", rev = "255b339430d6cd886bd22cd4517a83a52a3fa541", default-features = false }
+libreadymade = { git = "https://github.com/luminusOS/readymade.git", rev = "a3f3debaa7302e95113b050baf260c9aba9f6bd1", default-features = false }
 sirius-core = { path = "crates/sirius-core" }
 sirius-diag = { path = "crates/sirius-diag" }
 sirius-backend = { path = "crates/sirius-backend" }
