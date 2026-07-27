@@ -149,10 +149,12 @@ impl SimpleComponent for AppModel {
             .set_visible(bootstrap.terminal.show_button);
 
         // Ctrl+Shift+P opens the configured terminal even with the
-        // header-bar button hidden (the default).
+        // header-bar button hidden (the default). Capture the key before the
+        // focused page widget (notably the install log) can consume it.
         {
             let command = bootstrap.terminal.command.clone();
             let keys = gtk::EventControllerKey::new();
+            keys.set_propagation_phase(gtk::PropagationPhase::Capture);
             keys.connect_key_pressed(move |_, key, _, mods| {
                 let wanted = matches!(key, gtk::gdk::Key::P | gtk::gdk::Key::p)
                     && mods.contains(

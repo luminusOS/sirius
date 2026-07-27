@@ -1056,7 +1056,7 @@ dependencies = [
 [[package]]
 name = "filesystem-table"
 version = "0.1.2"
-source = "git+https://github.com/luminusOS/readymade.git?rev=a3f3debaa7302e95113b050baf260c9aba9f6bd1#a3f3debaa7302e95113b050baf260c9aba9f6bd1"
+source = "git+https://github.com/luminusOS/readymade.git?rev=8c27592bb99e31c601ce932105e8383c9c1e80b1#8c27592bb99e31c601ce932105e8383c9c1e80b1"
 dependencies = [
  "lsblk",
  "thiserror 2.0.18",
@@ -2166,7 +2166,7 @@ dependencies = [
 [[package]]
 name = "libreadymade"
 version = "0.12.5"
-source = "git+https://github.com/luminusOS/readymade.git?rev=a3f3debaa7302e95113b050baf260c9aba9f6bd1#a3f3debaa7302e95113b050baf260c9aba9f6bd1"
+source = "git+https://github.com/luminusOS/readymade.git?rev=8c27592bb99e31c601ce932105e8383c9c1e80b1#8c27592bb99e31c601ce932105e8383c9c1e80b1"
 dependencies = [
  "backhand",
  "bytesize",
@@ -2906,7 +2906,7 @@ dependencies = [
 [[package]]
 name = "repart"
 version = "0.1.0"
-source = "git+https://github.com/luminusOS/readymade.git?rev=a3f3debaa7302e95113b050baf260c9aba9f6bd1#a3f3debaa7302e95113b050baf260c9aba9f6bd1"
+source = "git+https://github.com/luminusOS/readymade.git?rev=8c27592bb99e31c601ce932105e8383c9c1e80b1#8c27592bb99e31c601ce932105e8383c9c1e80b1"
 dependencies = [
  "bytesize",
  "const_format",
@@ -3028,7 +3028,7 @@ dependencies = [
 [[package]]
 name = "serde-systemd-unit"
 version = "0.1.0"
-source = "git+https://github.com/luminusOS/readymade.git?rev=a3f3debaa7302e95113b050baf260c9aba9f6bd1#a3f3debaa7302e95113b050baf260c9aba9f6bd1"
+source = "git+https://github.com/luminusOS/readymade.git?rev=8c27592bb99e31c601ce932105e8383c9c1e80b1#8c27592bb99e31c601ce932105e8383c9c1e80b1"
 dependencies = [
  "chumsky",
  "itertools 0.14.0",
@@ -3221,7 +3221,7 @@ checksum = "c11532d9d241904f095185f35dcdaf930b1427a94d5b01d7002d74ba19b44cc4"
 
 [[package]]
 name = "sirius-app"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "async-io",
  "futures-channel",
@@ -3240,7 +3240,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-backend"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "gettext-rs",
  "libc",
@@ -3256,7 +3256,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-core"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "gettext-rs",
  "serde",
@@ -3267,7 +3267,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-diag"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "gettext-rs",
  "lsblk",
@@ -3278,7 +3278,7 @@ dependencies = [
 
 [[package]]
 name = "sirius-installer"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "clap",
  "gettext-rs",
