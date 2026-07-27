@@ -9,7 +9,7 @@ Install system dependencies on Fedora or inside the project toolbox:
 ```sh
 sudo dnf install -y \
   rust cargo pkgconf-pkg-config \
-  gtk4-devel libadwaita-devel libgweather-devel gnome-desktop4-devel gettext \
+  gtk4-devel libadwaita-devel gnome-desktop4-devel gettext \
   lcms2-devel fontconfig-devel libseccomp-devel glycin-loaders bubblewrap \
   glibc-all-langpacks
 ```

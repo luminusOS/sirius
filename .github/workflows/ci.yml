@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Install build dependencies
         run: |
-          dnf install -y git gcc clang gtk4-devel libadwaita-devel libgweather-devel \
+          dnf install -y git gcc clang gtk4-devel libadwaita-devel \
             gnome-desktop4-devel fontconfig-devel lcms2-devel libseccomp-devel \
             gettext glibc-all-langpacks pkgconf-pkg-config rust cargo clippy rustfmt
 
@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Install build dependencies
         run: |
-          dnf install -y git gcc clang gtk4-devel libadwaita-devel libgweather-devel \
+          dnf install -y git gcc clang gtk4-devel libadwaita-devel \
             gnome-desktop4-devel fontconfig-devel lcms2-devel libseccomp-devel \
             gettext glibc-all-langpacks pkgconf-pkg-config rust cargo rpm-build
 

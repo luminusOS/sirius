@@ -21,4 +21,13 @@ fn gettext_switches_from_portuguese_back_to_english() {
 
     set_ui_language("en_US");
     assert_eq!(gettext("Language"), "Language");
+
+    // The ISO live session starts the installer with an empty environment,
+    // i.e. in the C locale, where glibc gettext ignores LANGUAGE and always
+    // returns msgids. Switching must work from there too (needs the
+    // pt_BR.UTF-8 locale installed, e.g. glibc-all-langpacks).
+    setlocale(LocaleCategory::LcAll, "C");
+    assert_eq!(gettext("Language"), "Language");
+    set_ui_language("pt_BR");
+    assert_eq!(gettext("Language"), "Idioma");
 }

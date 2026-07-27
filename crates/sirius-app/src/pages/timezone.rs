@@ -2,7 +2,6 @@
 
 use super::PageOutput;
 use gettextrs::gettext;
-use libgweather as gweather;
 use relm4::adw::prelude::*;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, adw, gtk};
 use std::cell::Cell;
@@ -61,6 +60,7 @@ pub struct TimezonePage {
     results_popover: gtk::Popover,
     map: gtk::Picture,
     pin: gtk::Picture,
+    pin_label: gtk::Label,
     band: gtk::Box,
     locations: Vec<Location>,
     filtered: Vec<usize>,
@@ -238,12 +238,17 @@ impl SimpleComponent for TimezonePage {
         }
         pin.set_halign(gtk::Align::Start);
         pin.set_valign(gtk::Align::Start);
-        // The pin shows the selected city as a tooltip, so it must be
-        // hoverable; it sits exactly on the selected city, so the handful of
-        // pixels it keeps away from the map's click gesture cost nothing.
-        pin.set_can_target(true);
-        pin.set_has_tooltip(true);
+        // The selected city shows as a permanent label above the pin instead
+        // of a hover tooltip.
+        pin.set_can_target(false);
         pin.set_visible(pin_asset.is_some());
+
+        let pin_label = gtk::Label::new(None);
+        pin_label.add_css_class("timezone-pin-label");
+        pin_label.set_justify(gtk::Justification::Center);
+        pin_label.set_halign(gtk::Align::Start);
+        pin_label.set_valign(gtk::Align::Start);
+        pin_label.set_can_target(false);
 
         let band = gtk::Box::new(gtk::Orientation::Vertical, 0);
         band.add_css_class("timezone-band");
@@ -256,6 +261,7 @@ impl SimpleComponent for TimezonePage {
         // GTK4 way to react to allocation changes (first map + resizes).
         {
             let pin = pin.clone();
+            let pin_label = pin_label.clone();
             let band = band.clone();
             let selected_point = selected_point.clone();
             let band_meridian = band_meridian.clone();
@@ -264,6 +270,7 @@ impl SimpleComponent for TimezonePage {
                 let height = f64::from(map.height());
                 if width > 1.0 && height > 1.0 {
                     position_pin(&pin, selected_point.get(), width, height);
+                    position_pin_label(&pin_label, selected_point.get(), width, height);
                     position_band(&band, band_meridian.get(), width);
                 }
                 gtk::glib::ControlFlow::Continue
@@ -274,6 +281,7 @@ impl SimpleComponent for TimezonePage {
         overlay.set_child(Some(&map));
         overlay.add_overlay(&band);
         overlay.add_overlay(&pin);
+        overlay.add_overlay(&pin_label);
         let frame = gtk::Frame::new(None);
         frame.add_css_class("timezone-map-frame");
         frame.set_child(Some(&overlay));
@@ -287,6 +295,7 @@ impl SimpleComponent for TimezonePage {
             results_popover,
             map,
             pin,
+            pin_label,
             band,
             locations,
             filtered: Vec::new(),
@@ -400,20 +409,21 @@ impl TimezonePage {
         self.selected_point
             .set((location.longitude, location.latitude));
         self.band_meridian.set(zone_meridian(&location.zone));
+        self.refresh_selection(sender);
         let width = f64::from(self.map.width()).max(1.0);
         let height = f64::from(self.map.height()).max(1.0);
         position_pin(&self.pin, self.selected_point.get(), width, height);
+        position_pin_label(&self.pin_label, self.selected_point.get(), width, height);
         position_band(&self.band, self.band_meridian.get(), width);
-        self.refresh_selection(sender);
     }
 
     fn refresh_selection(&self, sender: &ComponentSender<Self>) {
         let location = &self.locations[self.selected];
-        self.pin.set_tooltip_text(Some(&format!(
-            "{}\n{}",
-            location.city(),
-            timezone_detail(&location.zone)
-        )));
+        let city = gtk::glib::markup_escape_text(location.city());
+        let detail = gtk::glib::markup_escape_text(&timezone_detail(&location.zone));
+        self.pin_label.set_markup(&format!(
+            "<b>{city}</b>\n<span size=\"small\">{detail}</span>"
+        ));
         sender
             .output(PageOutput::SetTimezone(location.zone.clone()))
             .ok();
@@ -435,19 +445,14 @@ fn apply_header(root: &adw::StatusPage) {
 }
 
 fn load_locations() -> Vec<Location> {
-    // Primary source: libgweather's location database (the same one behind
-    // gnome-initial-setup's search). Only CITY nodes with an IANA zone belong
-    // in the chooser; countries, administrative regions and weather stations
-    // may inherit a zone too, but are not valid city search results. The tzdb
-    // tables stay as a fallback for systems without libgweather data.
-    let mut locations = gweather_locations();
-    if locations.is_empty() {
-        locations = ZONE_TABLES
-            .iter()
-            .find_map(|path| std::fs::read_to_string(path).ok())
-            .map(|table| parse_zone_table(&table))
-            .unwrap_or_default();
-    }
+    // Like GNOME Initial Setup, the chooser is backed only by the tzdb tables:
+    // one searchable entry per zone's reference city, no external location
+    // database.
+    let mut locations = ZONE_TABLES
+        .iter()
+        .find_map(|path| std::fs::read_to_string(path).ok())
+        .map(|table| parse_zone_table(&table))
+        .unwrap_or_default();
 
     if locations.is_empty() {
         vec![
@@ -462,48 +467,6 @@ fn load_locations() -> Vec<Location> {
             locations.push(fallback("UTC", 0.0, 0.0));
         }
         locations
-    }
-}
-
-fn gweather_locations() -> Vec<Location> {
-    let mut locations = Vec::new();
-    if let Some(world) = gweather::Location::world() {
-        collect_gweather(&world, &mut locations);
-    }
-    locations
-}
-
-fn collect_gweather(parent: &gweather::Location, locations: &mut Vec<Location>) {
-    let mut child = parent.next_child(None);
-    while let Some(location) = child {
-        if location.level() == gweather::LocationLevel::City
-            && location.has_coords()
-            && location.has_timezone()
-            && let Some(zone) = location.timezone_str()
-        {
-            let (latitude, longitude) = location.coords();
-            let name = location
-                .name()
-                .or_else(|| location.english_name())
-                .map(|name| name.to_string())
-                .unwrap_or_else(|| zone_city(&zone));
-            let english_name = location.english_name().unwrap_or_default();
-            let sort_name = location.sort_name().unwrap_or_default();
-            let english_sort_name = location.english_sort_name().unwrap_or_default();
-            let country = location.country_name().unwrap_or_default();
-            locations.push(Location {
-                search_text: normalize(&format!(
-                    "{name} {english_name} {sort_name} {english_sort_name} {country}"
-                )),
-                zone: zone.to_string(),
-                name,
-                region: country.to_string(),
-                latitude,
-                longitude,
-            });
-        }
-        collect_gweather(&location, locations);
-        child = parent.next_child(Some(location));
     }
 }
 
@@ -591,11 +554,10 @@ fn initial_location(locations: &[Location]) -> usize {
         .unwrap_or(0)
 }
 
-/// Best location for an auto-detected zone: the city nearest to the zone's
-/// representative point from the tzdb table (the zone's main city, e.g. the
-/// city of Sao Paulo for America/Sao_Paulo). Picking the first database entry
-/// for the zone lands the pin thousands of kilometres off — the first
-/// libgweather city in America/Sao_Paulo document order is Tarauaca, in Acre.
+/// Best location for an auto-detected zone: the entry nearest to the zone's
+/// representative point from the tzdb table (the zone's reference city, e.g.
+/// the city of Sao Paulo for America/Sao_Paulo), never an arbitrary first
+/// entry that could sit far away from it.
 fn zone_match(locations: &[Location], zone: &str) -> Option<usize> {
     let reference = zone_reference_coords(zone);
     locations
@@ -852,6 +814,41 @@ fn position_pin(
     }
 }
 
+/// The permanent city label floats just above the pin, horizontally centered
+/// on the pin's tip and clamped inside the map.
+fn position_pin_label(
+    label: &gtk::Label,
+    (longitude, latitude): (f64, f64),
+    map_width: f64,
+    map_height: f64,
+) {
+    let label_width = f64::from(label.width());
+    let label_height = f64::from(label.height());
+    if label_width < 1.0 || label_height < 1.0 {
+        return;
+    }
+    // Same floored projection as the pin, so the label's center lands exactly
+    // on the pin tip.
+    let x = longitude_to_x(longitude, map_width)
+        .floor()
+        .clamp(0.0, map_width);
+    let y = latitude_to_y(latitude, map_height)
+        .floor()
+        .clamp(0.0, map_height);
+    let start = (x - label_width / 2.0)
+        .round()
+        .clamp(0.0, (map_width - label_width).max(0.0)) as i32;
+    let top = (y - PIN_HOT_POINT_Y - 14.0 - label_height)
+        .round()
+        .clamp(0.0, (map_height - label_height).max(0.0)) as i32;
+    if label.margin_start() != start {
+        label.set_margin_start(start);
+    }
+    if label.margin_top() != top {
+        label.set_margin_top(top);
+    }
+}
+
 /// Keyboard handling shared by the search entry and the popover, mirroring
 /// `PlaceEntry._onKeyPressed` in GNOME Maps: Escape dismisses the list and
 /// Up/Down move the highlighted row (popping the list back up on first Down)
@@ -975,9 +972,8 @@ mod tests {
 
     #[test]
     fn auto_detected_zone_prefers_the_city_nearest_the_zone_reference() {
-        // Both cities share America/Sao_Paulo. Tarauaca comes first in the
-        // libgweather database, but the zone's tzdb reference point is the
-        // city of Sao Paulo, so the nearest city must win.
+        // zone_match picks the candidate nearest to the zone's tzdb reference
+        // point, never an arbitrary first entry far from it.
         let locations = vec![
             Location {
                 zone: "America/Sao_Paulo".into(),
@@ -1016,20 +1012,19 @@ mod tests {
     }
 
     #[test]
-    fn libgweather_results_are_zoned_cities_only() {
-        let locations = gweather_locations();
+    fn loads_every_zone_from_the_tzdb_table() {
+        let locations = load_locations();
         assert!(
-            !locations.is_empty(),
-            "libgweather must provide city data on supported systems"
-        );
-        // The database currently contains thousands more weather stations,
-        // countries and administrative regions than cities. A regression to
-        // collecting every zoned node makes this bound fail conspicuously.
-        assert!(
-            locations.len() < 6_000,
-            "only city nodes should be collected, got {} locations",
+            locations.len() > 300,
+            "the tzdb tables must provide hundreds of zones, got {}",
             locations.len()
         );
+        assert!(
+            locations
+                .iter()
+                .any(|location| location.zone == "America/Sao_Paulo")
+        );
+        assert!(locations.iter().any(|location| location.zone == "UTC"));
     }
 
     #[test]
@@ -1074,9 +1069,10 @@ mod tests {
             eprintln!("skipping interactive test: no display available");
             return;
         }
-        gtk::init().expect("gtk init");
-        adw::init().expect("adw init");
+        crate::pages::testutil::run_on_gtk_thread(positions_pin_interactive);
+    }
 
+    fn positions_pin_interactive() {
         let controller = TimezonePage::builder().launch(());
         let carousel = adw::Carousel::new();
         controller.widget().set_margin_start(72);
@@ -1137,6 +1133,29 @@ mod tests {
         assert_eq!(
             pin_margins, expected_pin,
             "pin must sit on the initially selected city"
+        );
+
+        let (label_text, label_start, label_top, label_width) = {
+            let model = controller.model();
+            (
+                model.pin_label.label().to_string(),
+                model.pin_label.margin_start(),
+                model.pin_label.margin_top(),
+                model.pin_label.width(),
+            )
+        };
+        assert!(
+            label_text.contains(location.city()) && label_text.contains("UTC"),
+            "the pin label must name the city and its UTC offset, got {label_text:?}"
+        );
+        assert!(
+            label_top < pin_margins.1,
+            "the pin label must float above the pin icon"
+        );
+        let label_center = label_start + label_width / 2;
+        assert!(
+            (f64::from(label_center) - pin_x).abs() < 2.0,
+            "the pin label must stay centered on the pin tip (center {label_center}, tip {pin_x})"
         );
 
         let meridian = zone_meridian(&location.zone);
@@ -1200,11 +1219,14 @@ mod tests {
 
         // Enter honors the row highlighted through the arrow-key cursor
         // instead of always picking the first suggestion.
-        search.set_text("london");
+        search.set_text("san");
         pump(500);
         let expected_zone = {
             let model = controller.model();
-            assert!(model.filtered.len() > 1, "london must match several rows");
+            assert!(
+                model.filtered.len() > 1,
+                "san must match several rows (Santiago, Santo Domingo, …)"
+            );
             let second = model.results.row_at_index(1).unwrap();
             model.results.select_row(Some(&second));
             model.locations[model.filtered[1]].zone.clone()
@@ -1217,9 +1239,9 @@ mod tests {
         };
         assert_eq!(selected_zone, expected_zone);
 
-        // Cities absent from the tzdb table (the original search complaint)
-        // resolve through libgweather's database to the right zone.
-        search.set_text("curitiba");
+        // A zone whose city name differs from the search term still resolves
+        // through the tzdb comment/country fields.
+        search.set_text("fortaleza");
         pump(500);
         search.emit_activate();
         pump(500);
@@ -1227,7 +1249,7 @@ mod tests {
             let model = controller.model();
             model.locations[model.selected].zone.clone()
         };
-        assert_eq!(selected_zone, "America/Sao_Paulo");
+        assert_eq!(selected_zone, "America/Fortaleza");
 
         window.close();
         pump(100);
