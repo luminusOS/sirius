@@ -418,6 +418,21 @@ msgstr "o destino não é um disco inteiro suportado: {path}"
 msgid "target disk has mounted filesystems; unmount them before installing: {path}"
 msgstr "o disco de destino tem sistemas de arquivos montados; desmonte-os antes de instalar: {path}"
 
+msgid "cannot prepare target disk: {error}"
+msgstr "não foi possível preparar o disco de destino: {error}"
+
+msgid "target disk still backs active swap"
+msgstr "o disco de destino ainda contém swap ativa"
+
+msgid "target disk still has mounted filesystems"
+msgstr "o disco de destino ainda tem sistemas de arquivos montados"
+
+msgid "target disk still has active holders"
+msgstr "o disco de destino ainda tem dispositivos dependentes ativos"
+
+msgid "target disk identity changed"
+msgstr "a identidade do disco de destino mudou"
+
 msgid "cannot locate the installer executable: {error}"
 msgstr "não foi possível localizar o executável do instalador: {error}"
 
@@ -435,6 +450,9 @@ msgstr "não foi possível ocultar o repositório OSTree do sistema hospedeiro: 
 
 msgid "failed to read install request"
 msgstr "falha ao ler a solicitação de instalação"
+
+msgid "install request exceeds size limit"
+msgstr "a solicitação de instalação excede o limite de tamanho"
 
 msgid "invalid install request: {error}"
 msgstr "solicitação de instalação inválida: {error}"

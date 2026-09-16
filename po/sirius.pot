@@ -415,10 +415,46 @@ msgstr ""
 msgid "target disk has mounted filesystems; unmount them before installing: {path}"
 msgstr ""
 
+msgid "cannot prepare target disk: {error}"
+msgstr ""
+
+msgid "target disk still backs active swap"
+msgstr ""
+
+msgid "target disk still has mounted filesystems"
+msgstr ""
+
+msgid "target disk still has active holders"
+msgstr ""
+
+msgid "target disk identity changed"
+msgstr ""
+
+msgid "cannot locate the installer executable: {error}"
+msgstr ""
+
+msgid "cannot create the private install namespace: {error}"
+msgstr ""
+
+msgid "cannot prepare the private install namespace: {error}"
+msgstr ""
+
+msgid "cannot hide the host OSTree repository: {error}"
+msgstr ""
+
+msgid "cannot hide the host OSTree repository: mount exited with {status}"
+msgstr ""
+
 msgid "failed to read install request"
 msgstr ""
 
+msgid "install request exceeds size limit"
+msgstr ""
+
 msgid "invalid install request: {error}"
+msgstr ""
+
+msgid "invalid keyboard layout: {layout}"
 msgstr ""
 
 msgid "cannot apply partition plan: {error}"
