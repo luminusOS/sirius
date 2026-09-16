@@ -182,6 +182,7 @@ fn mode_selector(
     let group = adw::PreferencesGroup::new();
     group.set_title(&gettext("Partitioning"));
 
+    let mut radio_group: Option<gtk::CheckButton> = None;
     for (title, desc, manual) in [
         (
             gettext("Automatic partitioning"),
@@ -197,15 +198,25 @@ fn mode_selector(
         let row = adw::ActionRow::new();
         row.set_title(&title);
         row.set_subtitle(&desc);
-        row.add_suffix(&super::super::choice_list::selected_indicator(
-            state.manual == manual,
-        ));
-        row.set_activatable(true);
 
-        let page_sender = sender.clone();
-        row.connect_activated(move |_| {
-            page_sender.input(StorageMsg::SetManual(manual));
-        });
+        let radio = gtk::CheckButton::new();
+        if let Some(leader) = &radio_group {
+            radio.set_group(Some(leader));
+        } else {
+            radio_group = Some(radio.clone());
+        }
+        radio.set_active(state.manual == manual);
+        {
+            let page_sender = sender.clone();
+            radio.connect_toggled(move |radio| {
+                if radio.is_active() {
+                    page_sender.input(StorageMsg::SetManual(manual));
+                }
+            });
+        }
+        row.add_suffix(&radio);
+        row.set_activatable_widget(Some(&radio));
+
         group.add(&row);
     }
 
