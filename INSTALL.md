@@ -84,8 +84,9 @@ the language selector must rename that entry to `language`.
 
 ## Runtime requirements on the target/live system
 `systemd-repart`, `bootc`, `cryptsetup` (for encrypted installs), `pkexec`/polkit,
-`mount`, `udisks2`, and `NetworkManager`. Block-device discovery is performed
-in-process through the Rust `lsblk` crate and the kernel's sysfs data.
+`mount`/`umount`, `unshare`, `swapoff`, `wipefs`, `udevadm`, `udisks2`, and
+`NetworkManager`. Block-device discovery is performed in-process through the
+Rust `lsblk` crate and the kernel's sysfs data.
 
 The live user must be allowed to request NetworkManager scans/connections. Disk
 mutations never run in the UI process: the confirmed `PartitionPlan` crosses the
