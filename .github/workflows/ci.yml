@@ -9,17 +9,21 @@ name: CI
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: check
-    runs-on: ubuntu-latest
-    container: fedora:latest
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:45
     steps:
       - name: Install build dependencies
         run: |
           dnf install -y git gcc clang gtk4-devel libadwaita-devel \
             gnome-desktop4-devel fontconfig-devel lcms2-devel libseccomp-devel \
-            gettext glibc-all-langpacks pkgconf-pkg-config rust cargo clippy rustfmt
+            gettext glibc-all-langpacks pkgconf-pkg-config rust cargo clippy rustfmt \
+            python3 rpm
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,19 +43,28 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+      - name: RPM version rules
+        run: python3 -B tools/test_rpm_release.py
+
   rpm:
-    name: rpm
+    name: rpm (${{ matrix.arch }})
     needs: check
-    runs-on: ubuntu-latest
-    container: fedora:latest
-    permissions:
-      contents: write
+    runs-on: ${{ matrix.runner }}
+    container: registry.fedoraproject.org/fedora:45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Install build dependencies
         run: |
           dnf install -y git gcc clang gtk4-devel libadwaita-devel \
             gnome-desktop4-devel fontconfig-devel lcms2-devel libseccomp-devel \
-            gettext glibc-all-langpacks pkgconf-pkg-config rust cargo rpm-build
+            gettext glibc-all-langpacks pkgconf-pkg-config rust cargo rpm-build python3 file
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,27 +72,100 @@ jobs:
       - name: Mark workspace as safe for git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Check the build architecture
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: test "$(uname -m)" = "$ARCH"
+
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-generate-rpm
-        run: cargo install cargo-generate-rpm
+        run: cargo install cargo-generate-rpm --locked
+
+      - name: Derive the package version
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_TYPE" = tag ]; then
+            python3 tools/rpm_release.py "$REF_NAME" Cargo.toml >> "$GITHUB_OUTPUT"
+          else
+            version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb"))["workspace"]["package"]["version"])')"
+            echo "version=${version}" >> "$GITHUB_OUTPUT"
+            echo "release=0.ci" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build release binary
         run: cargo build --release -p sirius-installer
 
       - name: Build RPM package
-        run: cargo generate-rpm -p crates/sirius-installer
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE: ${{ steps.version.outputs.release }}
+        run: |
+          cargo generate-rpm -p crates/sirius-installer \
+            --set-metadata "version=\"${VERSION}\"" \
+            --set-metadata "release=\"${RELEASE}\""
+
+      - name: Check the package
+        env:
+          ARCH: ${{ matrix.arch }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE: ${{ steps.version.outputs.release }}
+        run: |
+          set -euo pipefail
+          rpm_file="$(ls target/generate-rpm/*.rpm)"
+          test "$(ls target/generate-rpm/*.rpm | wc -l)" = 1
+          test "$(rpm -qp --queryformat '%{NAME} %{VERSION} %{RELEASE} %{ARCH}' "$rpm_file")" = "sirius-installer ${VERSION} ${RELEASE} ${ARCH}"
+          test "$(basename "$rpm_file")" = "sirius-installer-${VERSION}-${RELEASE}.${ARCH}.rpm"
+          rpm -qpl "$rpm_file" | grep -qx /usr/bin/sirius
+          ! rpm -qpl "$rpm_file" | grep -qx /etc/sirius/distro.toml
+          ! rpm -qpl "$rpm_file" | grep -q '/polkit-1/rules.d/'
+          test "$(rpm -qp --configfiles "$rpm_file")" = /etc/sirius/sirius.toml
+          ! ldd target/release/sirius | grep -q 'not found'
+          file target/release/sirius | grep -q "$( [ "$ARCH" = x86_64 ] && echo x86-64 || echo aarch64 )"
 
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sirius-rpm
+          name: sirius-rpm-${{ matrix.arch }}
           path: target/generate-rpm/*.rpm
           if-no-files-found: error
 
-      - name: Attach RPM to GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: rpm
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sirius-rpm-*
+          path: dist
+          merge-multiple: true
+
+      - name: Verify both architectures and write checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          test "$(ls *.rpm | wc -l)" = 2
+          for file in *~*.rpm; do
+            [ -e "$file" ] || continue
+            mv "$file" "${file//\~/-}"
+          done
+          ls *.x86_64.rpm *.aarch64.rpm
+          sha256sum *.rpm > checksums.txt
+
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: target/generate-rpm/*.rpm
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          files: |
+            dist/*.rpm
+            dist/checksums.txt
