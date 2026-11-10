@@ -11,9 +11,20 @@ polkit/desktop integration, and the distribution's descriptor + repart layout.
 | `data/images/welcome-banner.png` | `/usr/share/sirius/welcome-banner.png` |
 | `data/images/timezone-map.svg` | `/usr/share/sirius/timezone-map.svg` |
 | `data/images/timezone-pin.png` | `/usr/share/sirius/timezone-pin.png` |
-| `data/distro.toml` (per-distribution) | `/etc/sirius/distro.toml` |
+| `data/distro.toml` (per-distribution, you create it) | `/etc/sirius/distro.toml` |
 | `data/repart.d/*.conf` (per-distribution) | `/usr/share/sirius/repart.d/` |
 | `data/sirius.toml` (page toggles, optional) | `/etc/sirius/sirius.toml` |
+
+## Installing the RPM
+
+The RPM installs the binary, the polkit action, the desktop file, the images, the
+partition layouts and `/etc/sirius/sirius.toml`. It does not install
+`/etc/sirius/distro.toml`, so a plain install points at no operating system image.
+Copy `/usr/share/doc/sirius/examples/distro.toml`, set `[bootc] image` for your
+distribution and Sirius will use it. Without that file `sirius run-playbook`
+stops with an error before it touches any disk. An existing
+`/etc/sirius/sirius.toml` is kept on upgrade. The package ships no polkit rule, so
+installing needs administrator authentication on an ordinary Fedora system.
 
 The pkexec action id is `io.sirius.Installer.run-playbook`; the policy pins the
 executable to `/usr/bin/sirius` with first argument `run-playbook`. The unprivileged

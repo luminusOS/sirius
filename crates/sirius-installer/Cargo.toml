@@ -20,6 +20,9 @@ gettext-rs = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+[dev-dependencies]
+toml = { workspace = true }
+
 [package.metadata.generate-rpm]
 assets = [
   { source = "target/release/sirius", dest = "/usr/bin/sirius", mode = "755" },
@@ -29,7 +32,7 @@ assets = [
   { source = "../../data/images/welcome-banner.png", dest = "/usr/share/sirius/welcome-banner.png", mode = "644" },
   { source = "../../data/images/timezone-map.svg", dest = "/usr/share/sirius/timezone-map.svg", mode = "644" },
   { source = "../../data/images/timezone-pin.png", dest = "/usr/share/sirius/timezone-pin.png", mode = "644" },
-  { source = "../../data/distro.toml", dest = "/etc/sirius/distro.toml", mode = "644", config = "noreplace" },
+  { source = "../../data/distro.toml", dest = "/usr/share/doc/sirius/examples/distro.toml", mode = "644", doc = true },
   { source = "../../data/sirius.toml", dest = "/etc/sirius/sirius.toml", mode = "644", config = "noreplace" },
   { source = "../../data/repart.d/10-esp.conf", dest = "/usr/share/sirius/repart.d/10-esp.conf", mode = "644" },
   { source = "../../data/repart.d/20-root.conf", dest = "/usr/share/sirius/repart.d/20-root.conf", mode = "644" },
