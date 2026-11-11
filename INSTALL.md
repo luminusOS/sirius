@@ -17,6 +17,19 @@ polkit/desktop integration, and the distribution's descriptor + repart layout.
 
 ## Installing the RPM
 
+On Fedora 45 (x86_64 or aarch64) install it from the Luminus repository, which DNF
+then keeps up to date:
+
+```sh
+sudo dnf config-manager addrepo --from-repofile=https://rpm.luminusos.org/stable/luminus-stable.repo
+sudo dnf install sirius-installer
+```
+
+Release candidates are published only to the testing repository,
+`https://rpm.luminusos.org/testing/luminus-testing.repo`. Both repository files turn on
+package and metadata signature checks. The package can also be downloaded from a
+GitHub release and installed with `sudo dnf install ./sirius-installer-*.rpm`.
+
 The RPM installs the binary, the polkit action, the desktop file, the images, the
 partition layouts and `/etc/sirius/sirius.toml`. It does not install
 `/etc/sirius/distro.toml`, so a plain install points at no operating system image.
